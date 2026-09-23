@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Plate -->
+  <rect width="64" height="64" rx="16" fill="#0f172a"/>
+  
+  <!-- Outer Stopwatch Rim -->
+  <circle cx="32" cy="35" r="21" stroke="#334155" stroke-width="4"/>
+  
+  <!-- Progress Arc -->
+  <path d="M 32 14 A 21 21 0 1 1 13.5 45.2" fill="none" stroke="url(#primaryGrad)" stroke-width="4.5" stroke-linecap="round"/>
+  
+  <!-- Top Pusher Button -->
+  <rect x="29" y="7" width="6" height="5" rx="2" fill="#f97316"/>
+  
+  <!-- Side Lap Button -->
+  <rect x="46" y="14" width="4" height="5" rx="1.5" transform="rotate(45 46 14)" fill="#64748b"/>
+  
+  <!-- Center Pin -->
+  <circle cx="32" cy="35" r="3.5" fill="#f8fafc"/>
+  
+  <!-- Racing Needle Pointing Ahead -->
+  <line x1="32" y1="35" x2="44" y2="23" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- High Urgency Indicator Dot -->
+  <circle cx="44" cy="23" r="2" fill="#f97316"/>
+</svg>
