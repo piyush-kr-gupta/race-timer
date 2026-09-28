@@ -37,11 +37,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleTestAudio = () => {
     setTestingAudio(true);
-    audio.playTaskComplete();
+    audio.playCountdownWarning(3);
     setTimeout(() => {
       audio.playWarningAlert();
-      setTestingAudio(false);
-    }, 700);
+      setTimeout(() => {
+        audio.playTaskComplete();
+        setTestingAudio(false);
+      }, 500);
+    }, 400);
   };
 
   const handleToggleNotifications = async () => {
@@ -252,6 +255,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   />
                   <span>{label}</span>
                 </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Final Second-by-Second Countdown Warning */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-2">
+            <div>
+              <span className="text-sm font-semibold text-slate-200 block">
+                Final Countdown Warning (Every Second)
+              </span>
+              <span className="text-xs text-slate-400">
+                Trigger gentle audio/visual warnings every second from:
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {[
+                { label: '10s to 1s', value: 10 },
+                { label: '15s to 1s', value: 15 },
+                { label: 'Disabled', value: 0 },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onUpdateSettings({ countdownWarningThreshold: opt.value })}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition cursor-pointer min-h-[36px] ${
+                    (settings.countdownWarningThreshold ?? 10) === opt.value
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {opt.label}
+                </button>
               ))}
             </div>
           </div>

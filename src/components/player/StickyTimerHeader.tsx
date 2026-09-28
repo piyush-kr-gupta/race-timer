@@ -48,6 +48,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
   const isPaused = tickData.timerState === 'PAUSED';
   const isOvertime = tickData.isOvertime;
   const isWarning = tickData.isWarning;
+  const isCountdownWarning = tickData.isCountdownWarning;
 
   const currentTask = tickData.currentTaskRun?.taskSnapshot;
 
@@ -62,7 +63,9 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
     : `${formatTime(tickData.raceRemainingSeconds)} race remaining`;
 
   return (
-    <div className="sticky top-0 z-30 w-full bg-slate-950/95 backdrop-blur-md border-b border-slate-800 shadow-2xl transition-all">
+    <div className={`sticky top-0 z-30 w-full bg-slate-950/95 backdrop-blur-md border-b shadow-2xl transition-all ${
+      isCountdownWarning ? 'border-amber-500/60 shadow-[0_4px_25px_rgba(251,191,36,0.12)]' : 'border-slate-800'
+    }`}>
       <div className="max-w-4xl mx-auto px-4 py-4 sm:py-5 flex flex-col items-center text-center">
         {/* Top auxiliary line: Race Name, Task Index & Action Toggles */}
         <div className="w-full flex items-center justify-between text-xs text-slate-400 mb-2">
@@ -108,7 +111,13 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
               Overtime
             </span>
           )}
-          {isWarning && (
+          {isCountdownWarning && !isOvertime && (
+            <span className="text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-md bg-amber-500/25 text-amber-300 border border-amber-500/60 tracking-wider flex items-center gap-1.5 shadow-sm shadow-amber-500/20 animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+              Final {tickData.taskRemainingSeconds}s
+            </span>
+          )}
+          {isWarning && !isCountdownWarning && !isOvertime && (
             <span className="text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/40 tracking-wider">
               <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
               Ending Soon
@@ -122,6 +131,8 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
             className={`font-mono font-black tabular-nums tracking-tighter leading-none select-none transition-all ${
               isOvertime
                 ? 'text-rose-500 drop-shadow-[0_0_20px_rgba(244,63,94,0.4)]'
+                : isCountdownWarning
+                ? 'text-amber-400 drop-shadow-[0_0_30px_rgba(251,191,36,0.6)] animate-pulse'
                 : isWarning
                 ? 'text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.3)]'
                 : isPaused
@@ -166,7 +177,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
         <div className="w-full space-y-1.5 max-w-lg mb-4">
           <ProgressBar
             progressPercent={tickData.taskProgressPercent}
-            color={isOvertime ? 'rose' : isWarning ? 'amber' : 'orange'}
+            color={isOvertime ? 'rose' : (isWarning || isCountdownWarning) ? 'amber' : 'orange'}
             size="md"
             isOvertime={isOvertime}
             label="Task Time Budget"

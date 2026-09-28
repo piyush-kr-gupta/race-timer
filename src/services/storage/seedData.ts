@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   completionSoundEnabled: true,
   browserNotificationsEnabled: false,
   warningThresholds: [300, 120, 60, 30],
+  countdownWarningThreshold: 10, // gentle warning every second from 10s (or 15s) down to 1s
   theme: 'system',
   largeTimerMode: true,
   compactMode: false,

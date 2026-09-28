@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TimerEngine } from './timerEngine';
+import { audio } from './audioService';
 import { DEFAULT_SETTINGS } from '../storage/seedData';
 import { RaceTemplate } from '../../types/race';
 
@@ -40,11 +41,13 @@ describe('TimerEngine', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.clearAllMocks();
     engine = new TimerEngine(DEFAULT_SETTINGS);
   });
 
   afterEach(() => {
     engine.destroy();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -262,5 +265,108 @@ describe('TimerEngine', () => {
     expect(recoveredData.taskElapsedSeconds).toBe(5);
     expect(recoveredData.taskRemainingSeconds).toBe(5);
     freshEngine.destroy();
+  });
+
+  it('triggers gentle audio and visual countdown warnings every second from 10 seconds to 1 second', () => {
+    const playCountdownSpy = vi.spyOn(audio, 'playCountdownWarning');
+
+    // 10-second task
+    const tenSecondTemplate: RaceTemplate = {
+      ...mockTemplate,
+      tasks: [{ id: 't10', name: 'TenSec', durationSeconds: 10, order: 0, enabled: true }],
+    };
+
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      countdownWarningThreshold: 10,
+      autoAdvance: false,
+      allowOvertime: true,
+    });
+
+    engine.initializeRun(tenSecondTemplate);
+    engine.start();
+
+    // At 0s elapsed, remaining is 10s
+    expect(engine.getTickData().isCountdownWarning).toBe(true);
+    expect(engine.getTickData().countdownSecondsRemaining).toBe(10);
+
+    // Advance 10 seconds second by second
+    for (let s = 1; s <= 9; s++) {
+      vi.advanceTimersByTime(1000);
+      const data = engine.getTickData();
+      expect(data.isCountdownWarning).toBe(true);
+      expect(data.countdownSecondsRemaining).toBe(10 - s);
+    }
+
+    // Advance to 10s (0s remaining, entering overtime)
+    vi.advanceTimersByTime(1000);
+    expect(engine.getTickData().isCountdownWarning).toBe(false);
+    expect(engine.getTickData().taskRemainingSeconds).toBe(0);
+
+    // Audio warning should have fired for each second from 10 down to 1
+    expect(playCountdownSpy).toHaveBeenCalled();
+    const calls = playCountdownSpy.mock.calls.map((c) => c[0]);
+    expect(calls).toContain(10);
+    expect(calls).toContain(5);
+    expect(calls).toContain(1);
+    expect(calls).not.toContain(0);
+  });
+
+  it('supports countdown warning every second from 15 seconds to 1 second when configured', () => {
+    const playCountdownSpy = vi.spyOn(audio, 'playCountdownWarning');
+
+    const fifteenSecondTemplate: RaceTemplate = {
+      ...mockTemplate,
+      tasks: [{ id: 't15', name: 'FifteenSec', durationSeconds: 15, order: 0, enabled: true }],
+    };
+
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      countdownWarningThreshold: 15,
+      autoAdvance: false,
+      allowOvertime: true,
+    });
+
+    engine.initializeRun(fifteenSecondTemplate);
+    engine.start();
+
+    expect(engine.getTickData().isCountdownWarning).toBe(true);
+    expect(engine.getTickData().countdownSecondsRemaining).toBe(15);
+
+    // Advance 5 seconds (to 10s remaining)
+    vi.advanceTimersByTime(5000);
+    expect(engine.getTickData().countdownSecondsRemaining).toBe(10);
+
+    // Advance to 1s remaining
+    vi.advanceTimersByTime(9000);
+    expect(engine.getTickData().countdownSecondsRemaining).toBe(1);
+    expect(engine.getTickData().isCountdownWarning).toBe(true);
+
+    const calls = playCountdownSpy.mock.calls.map((c) => c[0]);
+    expect(calls).toContain(15);
+    expect(calls).toContain(10);
+    expect(calls).toContain(1);
+  });
+
+  it('does not trigger countdown warning when countdownWarningThreshold is 0 (disabled)', () => {
+    const playCountdownSpy = vi.spyOn(audio, 'playCountdownWarning');
+
+    const tenSecondTemplate: RaceTemplate = {
+      ...mockTemplate,
+      tasks: [{ id: 't10', name: 'TenSec', durationSeconds: 10, order: 0, enabled: true }],
+    };
+
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      countdownWarningThreshold: 0,
+      autoAdvance: false,
+    });
+
+    engine.initializeRun(tenSecondTemplate);
+    engine.start();
+
+    vi.advanceTimersByTime(5000);
+    expect(engine.getTickData().isCountdownWarning).toBe(false);
+    expect(playCountdownSpy).not.toHaveBeenCalled();
   });
 });

@@ -40,6 +40,7 @@ export interface RaceTemplate {
     autoAdvance?: boolean;
     allowOvertime?: boolean;
     warningThresholds?: number[];
+    countdownWarningThreshold?: number; // e.g. 10, 15, or 0
   };
 }
 
@@ -108,6 +109,7 @@ export interface AppSettings {
   completionSoundEnabled: boolean;
   browserNotificationsEnabled: boolean;
   warningThresholds: number[]; // seconds e.g. [300, 120, 60, 30]
+  countdownWarningThreshold: number; // e.g. 10 or 15 or 0 (disabled), triggers gentle warning every second down to 1s
   theme: 'system' | 'dark' | 'light';
   largeTimerMode: boolean;
   compactMode: boolean;

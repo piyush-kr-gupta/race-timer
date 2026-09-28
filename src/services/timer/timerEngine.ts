@@ -35,6 +35,8 @@ export interface TimerTickData {
   estimatedFinishTime: Date | null;
   isOvertime: boolean;
   isWarning: boolean;
+  isCountdownWarning: boolean;
+  countdownSecondsRemaining: number;
 }
 
 export type TimerListener = (data: TimerTickData) => void;
@@ -61,6 +63,7 @@ export class TimerEngine {
 
   private lastTickTimestamp: number = 0;
   private warnedThresholdsForCurrentTask: Set<number> = new Set();
+  private lastCountdownSecondWarned: number | null = null;
 
   private intervalId: number | null = null;
   private listeners: Set<TimerListener> = new Set();
@@ -149,6 +152,7 @@ export class TimerEngine {
     this.racePausedAt = null;
     this.raceAccumulatedPausedMs = 0;
     this.warnedThresholdsForCurrentTask.clear();
+    this.lastCountdownSecondWarned = null;
 
     return run;
   }
@@ -292,6 +296,7 @@ export class TimerEngine {
     this.taskPausedAt = this.timerState === 'PAUSED' ? now : null;
     this.taskAccumulatedPausedMs = 0;
     this.warnedThresholdsForCurrentTask.clear();
+    this.lastCountdownSecondWarned = null;
 
     if (this.timerState !== 'PAUSED') {
       this.setState('RUNNING');
@@ -363,6 +368,7 @@ export class TimerEngine {
 
     this.currentTaskIndex = nextIndex;
     this.warnedThresholdsForCurrentTask.clear();
+    this.lastCountdownSecondWarned = null;
 
     const now = Date.now();
     const nowIso = new Date(now).toISOString();
@@ -444,6 +450,18 @@ export class TimerEngine {
             notifications.notify(`Task Warning: ${threshold}s remaining`, {
               body: `${currentRun.taskSnapshot.name} has ${threshold} seconds left.`,
             });
+          }
+          this.setState('WARNING');
+        }
+      }
+
+      // Final countdown warning: every second from 10s (or 15s) down to 1s
+      const countdownThreshold = this.settings.countdownWarningThreshold ?? 10;
+      if (countdownThreshold > 0 && remaining <= countdownThreshold) {
+        if (this.lastCountdownSecondWarned !== remaining) {
+          this.lastCountdownSecondWarned = remaining;
+          if (this.settings.warningSoundEnabled) {
+            audio.playCountdownWarning(remaining);
           }
           this.setState('WARNING');
         }
@@ -541,6 +559,13 @@ export class TimerEngine {
       estimatedFinish = new Date(now + raceRemaining * 1000);
     }
 
+    const countdownThreshold = this.settings.countdownWarningThreshold ?? 10;
+    const isCountdownWarning =
+      countdownThreshold > 0 &&
+      taskRemaining > 0 &&
+      taskRemaining <= countdownThreshold &&
+      this.timerState !== 'PAUSED';
+
     return {
       timerState: this.timerState,
       currentTaskIndex: this.currentTaskIndex,
@@ -561,7 +586,9 @@ export class TimerEngine {
       pausedAt: this.racePausedAt,
       estimatedFinishTime: estimatedFinish,
       isOvertime: taskOvertime > 0,
-      isWarning: this.timerState === 'WARNING',
+      isWarning: this.timerState === 'WARNING' || isCountdownWarning,
+      isCountdownWarning,
+      countdownSecondsRemaining: isCountdownWarning ? taskRemaining : 0,
     };
   }
 
@@ -606,6 +633,7 @@ export class TimerEngine {
     this.racePausedAt = saved.racePausedAt;
     this.raceAccumulatedPausedMs = saved.raceAccumulatedPausedMs;
     this.timerState = saved.timerState;
+    this.lastCountdownSecondWarned = null;
 
     const totalAllocated = saved.taskRuns
       .filter((t) => t.taskSnapshot.enabled)

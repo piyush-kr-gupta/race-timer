@@ -53,6 +53,24 @@ class AudioService {
   }
 
   /**
+   * Gentle countdown warning pip: soft, subtle sine pulse triggered every second during final countdown (from 10s or 15s to 1s)
+   */
+  playCountdownWarning(secondsRemaining: number) {
+    if (!this.enabled || this.volume <= 0) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      // Gentle soft pip: 660Hz for 15s-4s, slightly brighter 880Hz for final 3s, 2s, 1s
+      const freq = secondsRemaining <= 3 ? 880 : 660;
+      this.playTone(ctx, freq, 'sine', now, 0.08, 0.16 * this.volume);
+    } catch (e) {
+      console.warn('Audio countdown warning playback failed:', e);
+    }
+  }
+
+  /**
    * Task completion chime: cheerful ascending chime (587Hz -> 880Hz)
    */
   playTaskComplete() {
