@@ -663,6 +663,54 @@ export class TimerEngine {
     return this.run;
   }
 
+  getCurrentRuntimeState(): ActiveRunRuntimeState | null {
+    if (!this.run || !this.template) return null;
+    return {
+      runId: this.run.id,
+      templateId: this.template.id,
+      currentTaskIndex: this.currentTaskIndex,
+      timerState: this.timerState,
+      taskStartedAt: this.taskStartedAt,
+      taskPausedAt: this.taskPausedAt,
+      taskAccumulatedPausedMs: this.taskAccumulatedPausedMs,
+      raceStartedAt: this.raceStartedAt,
+      racePausedAt: this.racePausedAt,
+      raceAccumulatedPausedMs: this.raceAccumulatedPausedMs,
+      lastTickTimestamp: Date.now(),
+      taskRuns: this.run.taskRuns,
+      templateSnapshot: this.template,
+    };
+  }
+
+  pauseAndGetState(): ActiveRunRuntimeState | null {
+    if (this.timerState === 'RUNNING' || this.timerState === 'WARNING' || this.timerState === 'OVERTIME') {
+      this.pause();
+    }
+    const state = this.getCurrentRuntimeState();
+    if (state) {
+      state.savedAt = new Date().toISOString();
+      state.isExplicitlySaved = true;
+    }
+    return state;
+  }
+
+  clearCurrentRun(): void {
+    this.stopTicker();
+    wakeLock.release();
+    this.run = null;
+    this.template = null;
+    this.timerState = 'IDLE';
+    this.currentTaskIndex = 0;
+    this.taskStartedAt = 0;
+    this.taskPausedAt = null;
+    this.taskAccumulatedPausedMs = 0;
+    this.raceStartedAt = 0;
+    this.racePausedAt = null;
+    this.raceAccumulatedPausedMs = 0;
+    this.lastCountdownSecondWarned = null;
+    this.notify();
+  }
+
   getLastTickTimestamp(): number {
     return this.lastTickTimestamp;
   }

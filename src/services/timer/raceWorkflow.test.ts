@@ -103,4 +103,101 @@ describe('Race Workflow and Snapshot Integrity', () => {
     expect(run.totalActualSeconds).toBe(25);
     expect(run.totalPausedSeconds).toBe(25);
   });
+
+  it('saves in-progress race state, allows starting and completing another race, then resumes first race from saved point', () => {
+    const raceATemplate: RaceTemplate = {
+      id: 'race-a',
+      name: 'Main Long Race',
+      category: 'Work',
+      tags: [],
+      createdAt: '2026-09-24T00:00:00.000Z',
+      updatedAt: '2026-09-24T00:00:00.000Z',
+      tasks: [
+        { id: 'a1', name: 'Task A1', durationSeconds: 60, order: 0, enabled: true },
+        { id: 'a2', name: 'Task A2', durationSeconds: 120, order: 1, enabled: true },
+        { id: 'a3', name: 'Task A3', durationSeconds: 180, order: 2, enabled: true },
+      ],
+    };
+
+    const raceBTemplate: RaceTemplate = {
+      id: 'race-b',
+      name: 'Quick Interlude Race',
+      category: 'Quick',
+      tags: [],
+      createdAt: '2026-09-24T00:00:00.000Z',
+      updatedAt: '2026-09-24T00:00:00.000Z',
+      tasks: [
+        { id: 'b1', name: 'Task B1', durationSeconds: 30, order: 0, enabled: true },
+      ],
+    };
+
+    // 1. Start Race A
+    engine.initializeRun(raceATemplate);
+    engine.start();
+
+    // Work on Task A1 for 50s and complete it
+    vi.advanceTimersByTime(50000);
+    engine.completeTask();
+
+    // Run Task A2 for 40 seconds (80 seconds remaining out of 120s)
+    vi.advanceTimersByTime(40000);
+    expect(engine.getTickData().taskElapsedSeconds).toBe(40);
+    expect(engine.getTickData().taskRemainingSeconds).toBe(80);
+
+    // 2. User pauses & saves progress of Race A to resume later
+    const savedRaceA = engine.pauseAndGetState();
+    expect(savedRaceA).not.toBeNull();
+    expect(savedRaceA!.currentTaskIndex).toBe(1);
+    expect(savedRaceA!.taskRuns[0].status).toBe('completed');
+    expect(savedRaceA!.taskRuns[0].actualSeconds).toBe(50);
+    expect(savedRaceA!.timerState).toBe('PAUSED');
+    expect(savedRaceA!.isExplicitlySaved).toBe(true);
+
+    // 3. Start Race B, complete it, and finish
+    engine.initializeRun(raceBTemplate);
+    engine.start();
+    vi.advanceTimersByTime(25000);
+    engine.completeTask();
+    engine.finishRace();
+    expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+    const runB = engine.getCurrentRun()!;
+    expect(runB.status).toBe('completed');
+    expect(runB.totalActualSeconds).toBe(25);
+
+    // 4. Time passes while Race A is paused and saved (e.g. 15 minutes)
+    vi.advanceTimersByTime(900000);
+
+    // 5. Resume Race A from saved state
+    engine.recover(savedRaceA!);
+    const resumedData = engine.getTickData();
+    expect(resumedData.timerState).toBe('PAUSED');
+    expect(resumedData.currentTaskIndex).toBe(1);
+    expect(resumedData.taskElapsedSeconds).toBe(40);
+    expect(resumedData.taskRemainingSeconds).toBe(80);
+    expect(resumedData.raceElapsedSeconds).toBe(90); // 50s from task 1 + 40s from task 2
+
+    // 6. Resume running Race A
+    engine.start();
+    expect(engine.getTickData().timerState).toBe('RUNNING');
+
+    // Run 70s on Task A2 (40s + 70s = 110s)
+    vi.advanceTimersByTime(70000);
+    expect(engine.getTickData().taskElapsedSeconds).toBe(110);
+    engine.completeTask();
+
+    // Complete Task A3 after 100s
+    vi.advanceTimersByTime(100000);
+    expect(engine.getTickData().taskElapsedSeconds).toBe(100);
+    engine.completeTask();
+    engine.finishRace();
+
+    // 7. Verify Race A finished with 100% accurate time bookkeeping
+    expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+    const finalRunA = engine.getCurrentRun()!;
+    expect(finalRunA.status).toBe('completed');
+    expect(finalRunA.taskRuns[0].actualSeconds).toBe(50);
+    expect(finalRunA.taskRuns[1].actualSeconds).toBe(110);
+    expect(finalRunA.taskRuns[2].actualSeconds).toBe(100);
+    expect(finalRunA.totalActualSeconds).toBe(260);
+  });
 });

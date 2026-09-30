@@ -1,14 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { RaceTemplate, RaceRun } from '../../types/race';
+import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from '../../types/race';
 import { RaceCard } from './RaceCard';
-import { Plus, Search, Play, Sparkles } from 'lucide-react';
+import { ConfirmDialog } from '../common/ConfirmDialog';
+import { formatTime } from '../../utils/duration';
+import { Plus, Search, Play, Sparkles, BookmarkCheck, Trash2 } from 'lucide-react';
 
 interface RaceDashboardProps {
   templates: RaceTemplate[];
   runs: RaceRun[];
+  savedRaces?: ActiveRunRuntimeState[];
   isRaceActive: boolean;
   activeRaceName?: string;
+  activeRunId?: string;
   onResumeActiveRace?: () => void;
+  onResumeSavedRace?: (state: ActiveRunRuntimeState) => void;
+  onDiscardSavedRace?: (runId: string) => void;
   onCreateRace: () => void;
   onStartRace: (template: RaceTemplate) => void;
   onEditRace: (template: RaceTemplate) => void;
@@ -20,9 +26,13 @@ interface RaceDashboardProps {
 export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   templates,
   runs,
+  savedRaces = [],
   isRaceActive,
   activeRaceName,
+  activeRunId,
   onResumeActiveRace,
+  onResumeSavedRace,
+  onDiscardSavedRace,
   onCreateRace,
   onStartRace,
   onEditRace,
@@ -35,6 +45,8 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   const [filterMode, setFilterMode] = useState<'all' | 'active' | 'archived'>('active');
   const [sortBy, setSortBy] = useState<'updated' | 'name' | 'duration-desc' | 'duration-asc'>('updated');
 
+  const [discardTarget, setDiscardTarget] = useState<{ runId: string; name: string } | null>(null);
+
   // Collect unique categories
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -43,6 +55,17 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
     }
     return Array.from(set);
   }, [templates]);
+
+  // Map saved races by templateId
+  const savedRacesByTemplateId = useMemo(() => {
+    const map = new Map<string, ActiveRunRuntimeState>();
+    for (const s of savedRaces) {
+      if (!map.has(s.templateId)) {
+        map.set(s.templateId, s);
+      }
+    }
+    return map;
+  }, [savedRaces]);
 
   // Map latest run for each template
   const latestRunsByTemplate = useMemo(() => {
@@ -99,8 +122,117 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Live Active Race Alert Banner */}
-      {isRaceActive && (
+      {/* IN-PROGRESS / SAVED RACES SECTION */}
+      {savedRaces.length > 0 ? (
+        <div className="bg-slate-900/90 border border-orange-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                <BookmarkCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <span>In-Progress & Saved Races</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                    {savedRaces.length}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Switch back and resume any saved race right from where you left off.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {savedRaces.map((state) => {
+              const currentTask = state.templateSnapshot.tasks[state.currentTaskIndex];
+              const completedCount = state.taskRuns.filter(
+                (t) => t.status === 'completed' || t.status === 'expired'
+              ).length;
+              const totalTasks = state.templateSnapshot.tasks.filter((t) => t.enabled).length || state.templateSnapshot.tasks.length;
+              const pct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
+              // Calculate current task remaining time accurately
+              const now = Date.now();
+              const currentPaused = state.taskPausedAt !== null ? now - state.taskPausedAt : 0;
+              const totalPausedMs = state.taskAccumulatedPausedMs + currentPaused;
+              const taskElapsed = Math.floor(Math.max(0, now - state.taskStartedAt - totalPausedMs) / 1000);
+              const currentAllocated = currentTask?.durationSeconds || 0;
+              const taskRemaining = Math.max(0, currentAllocated - taskElapsed);
+
+              const isCurrentActive = isRaceActive && activeRunId === state.runId;
+
+              return (
+                <div
+                  key={state.runId}
+                  className="bg-slate-950/70 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-md"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-xs font-bold text-slate-200 truncate">
+                        {state.templateSnapshot.name}
+                      </span>
+                      {isCurrentActive ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1 shrink-0 animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          Live Now
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                          ⏸ Saved
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+                      <span className="text-orange-400 font-medium truncate">
+                        Task {state.currentTaskIndex + 1}/{totalTasks}: {currentTask?.name || 'Task'}
+                      </span>
+                      <span className="font-mono text-slate-300 shrink-0 ml-2">
+                        {formatTime(taskRemaining)} left
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-orange-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
+                      <span>{completedCount} of {totalTasks} tasks complete ({pct}%)</span>
+                      {state.savedAt && (
+                        <span>Saved {new Date(state.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                    <button
+                      onClick={() => onResumeSavedRace ? onResumeSavedRace(state) : onResumeActiveRace?.()}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer min-h-[36px]"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>Resume Race</span>
+                    </button>
+                    <button
+                      onClick={() => setDiscardTarget({ runId: state.runId, name: state.templateSnapshot.name })}
+                      className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-900 rounded-xl transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                      title="Discard saved run"
+                      aria-label="Discard saved run"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : isRaceActive ? (
+        /* Live Active Race Alert Banner (if no saved races list) */
         <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-950/80 via-amber-950/60 to-slate-900 border border-orange-500/40 shadow-xl flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
@@ -124,7 +256,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
             Resume Race
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* Main Bar: Search, Category, Sorting & Actions */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -231,7 +363,9 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
               key={template.id}
               template={template}
               lastRun={latestRunsByTemplate.get(template.id)}
+              savedRun={savedRacesByTemplateId.get(template.id)}
               onStart={onStartRace}
+              onResumeSaved={onResumeSavedRace}
               onEdit={onEditRace}
               onDuplicate={onDuplicateRace}
               onToggleArchive={onToggleArchive}
@@ -262,6 +396,22 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
           </button>
         </div>
       )}
+
+      {/* Confirm Discard Saved Run Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(discardTarget)}
+        title="Discard In-Progress Run?"
+        message={`Are you sure you want to discard your saved progress for "${discardTarget?.name}"? This cannot be undone.`}
+        isDestructive
+        confirmText="Discard Run"
+        onConfirm={() => {
+          if (discardTarget) {
+            onDiscardSavedRace?.(discardTarget.runId);
+            setDiscardTarget(null);
+          }
+        }}
+        onCancel={() => setDiscardTarget(null)}
+      />
     </div>
   );
 };

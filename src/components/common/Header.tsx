@@ -8,6 +8,7 @@ interface HeaderProps {
   onQuickStart: () => void;
   onOpenShortcuts: () => void;
   isRaceActive: boolean;
+  savedRacesCount?: number;
   onReturnToActiveRace?: () => void;
   settings: AppSettings;
   onUpdateSettings: (settings: Partial<AppSettings>) => void;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onQuickStart,
   onOpenShortcuts,
   isRaceActive,
+  savedRacesCount = 0,
   onReturnToActiveRace,
   settings,
   onUpdateSettings,
@@ -64,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="tracking-tight hidden sm:inline">Race Timer</span>
           </button>
 
-          {isRaceActive && (
+          {isRaceActive ? (
             <button
               onClick={onReturnToActiveRace}
               className="flex items-center gap-2 px-3 py-1 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/30 rounded-full text-xs font-semibold animate-pulse transition cursor-pointer"
@@ -72,7 +74,15 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
               Live Race
             </button>
-          )}
+          ) : savedRacesCount > 0 ? (
+            <button
+              onClick={onReturnToActiveRace}
+              className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 rounded-full text-xs font-semibold transition cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              In Progress ({savedRacesCount})
+            </button>
+          ) : null}
         </div>
 
         {/* Navigation Tabs */}

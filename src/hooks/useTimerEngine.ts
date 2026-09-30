@@ -7,6 +7,7 @@ export function useTimerEngine(settings: AppSettings) {
   const engineRef = useRef<TimerEngine | null>(null);
   const [tickData, setTickData] = useState<TimerTickData | null>(null);
   const [currentRun, setCurrentRun] = useState<RaceRun | null>(null);
+  const [savedRaces, setSavedRaces] = useState<ActiveRunRuntimeState[]>([]);
   const [interruptedState, setInterruptedState] = useState<ActiveRunRuntimeState | null>(null);
   const [expiredNotification, setExpiredNotification] = useState<{
     taskIndex: number;
@@ -23,6 +24,15 @@ export function useTimerEngine(settings: AppSettings) {
     engineRef.current = engine;
   }
 
+  const refreshSavedRaces = useCallback(async () => {
+    try {
+      const states = await storage.getAllActiveRuntimeStates();
+      setSavedRaces(states);
+    } catch (e) {
+      console.error('Failed to load saved races:', e);
+    }
+  }, []);
+
   // Update engine settings when settings change
   useEffect(() => {
     if (engineRef.current) {
@@ -30,14 +40,17 @@ export function useTimerEngine(settings: AppSettings) {
     }
   }, [settings]);
 
-  // Check for interrupted race on mount
+  // Check for saved and interrupted races on mount
   useEffect(() => {
-    storage.getActiveRuntimeState().then((state) => {
-      if (state && (state.timerState === 'RUNNING' || state.timerState === 'PAUSED' || state.timerState === 'WARNING' || state.timerState === 'OVERTIME')) {
-        setInterruptedState(state);
-      }
+    refreshSavedRaces().then(() => {
+      storage.getActiveRuntimeState().then((state) => {
+        // Only prompt modal for ungracefully interrupted runs that were running
+        if (state && state.timerState === 'RUNNING') {
+          setInterruptedState(state);
+        }
+      });
     });
-  }, []);
+  }, [refreshSavedRaces]);
 
   // Subscribe to engine ticks and events
   useEffect(() => {
@@ -101,32 +114,80 @@ export function useTimerEngine(settings: AppSettings) {
   }, []);
 
   const finishRace = useCallback(async () => {
-    if (!engineRef.current) return;
-    engineRef.current.finishRace();
-    const run = engineRef.current.getCurrentRun();
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.finishRace();
+    const run = engine.getCurrentRun();
     if (run) {
       await storage.saveRun(run);
+      await storage.deleteActiveRuntimeState(run.id);
     }
-    await storage.clearActiveRuntimeState();
-  }, []);
+    await refreshSavedRaces();
+  }, [refreshSavedRaces]);
+
+  const saveCurrentRaceAndExit = useCallback(async (): Promise<ActiveRunRuntimeState | null> => {
+    const engine = engineRef.current;
+    if (!engine) return null;
+    const state = engine.pauseAndGetState();
+    if (state) {
+      await storage.saveActiveRuntimeState(state);
+      await refreshSavedRaces();
+    }
+    return state;
+  }, [refreshSavedRaces]);
+
+  const resumeRace = useCallback(async (savedState: ActiveRunRuntimeState) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    // If another race is currently loaded and different, save it first
+    const current = engine.getCurrentRun();
+    if (current && current.id !== savedState.runId) {
+      const currentState = engine.pauseAndGetState();
+      if (currentState) {
+        await storage.saveActiveRuntimeState(currentState);
+      }
+    }
+
+    engine.recover(savedState);
+    setCurrentRun(engine.getCurrentRun());
+    setTickData(engine.getTickData());
+    setInterruptedState(null);
+    await refreshSavedRaces();
+  }, [refreshSavedRaces]);
+
+  const discardSavedRace = useCallback(async (runId: string) => {
+    await storage.deleteActiveRuntimeState(runId);
+    const engine = engineRef.current;
+    if (engine && engine.getCurrentRun()?.id === runId) {
+      engine.clearCurrentRun();
+      setCurrentRun(null);
+      setTickData(null);
+    }
+    if (interruptedState?.runId === runId) {
+      setInterruptedState(null);
+    }
+    await refreshSavedRaces();
+  }, [interruptedState?.runId, refreshSavedRaces]);
 
   const resumeInterrupted = useCallback((savedState: ActiveRunRuntimeState) => {
-    if (!engineRef.current) return;
-    engineRef.current.recover(savedState);
-    setInterruptedState(null);
-  }, []);
+    resumeRace(savedState);
+  }, [resumeRace]);
 
   const discardInterrupted = useCallback(async () => {
-    await storage.clearActiveRuntimeState();
-    setInterruptedState(null);
-  }, []);
+    if (interruptedState) {
+      await discardSavedRace(interruptedState.runId);
+    }
+  }, [discardSavedRace, interruptedState]);
 
   return {
     engine: engineRef.current,
     tickData,
     currentRun,
+    savedRaces,
     interruptedState,
     expiredNotification,
+    refreshSavedRaces,
     initializeRun,
     start,
     pause,
@@ -135,6 +196,9 @@ export function useTimerEngine(settings: AppSettings) {
     restartTask,
     restartRace,
     finishRace,
+    saveCurrentRaceAndExit,
+    resumeRace,
+    discardSavedRace,
     resumeInterrupted,
     discardInterrupted,
   };

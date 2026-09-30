@@ -1,12 +1,13 @@
-import React from 'react';
-import { RaceTemplate, RaceRun } from '../../types/race';
+import { ActiveRunRuntimeState, RaceTemplate, RaceRun } from '../../types/race';
 import { formatDurationHuman } from '../../utils/duration';
-import { Play, Edit3, Copy, Trash2, Archive, ArchiveRestore, Clock, CheckCircle } from 'lucide-react';
+import { Play, Edit3, Copy, Trash2, Archive, ArchiveRestore, Clock, CheckCircle, RotateCcw } from 'lucide-react';
 
 interface RaceCardProps {
   template: RaceTemplate;
   lastRun?: RaceRun;
+  savedRun?: ActiveRunRuntimeState;
   onStart: (template: RaceTemplate) => void;
+  onResumeSaved?: (saved: ActiveRunRuntimeState) => void;
   onEdit: (template: RaceTemplate) => void;
   onDuplicate: (templateId: string) => void;
   onToggleArchive: (templateId: string) => void;
@@ -16,7 +17,9 @@ interface RaceCardProps {
 export const RaceCard: React.FC<RaceCardProps> = ({
   template,
   lastRun,
+  savedRun,
   onStart,
+  onResumeSaved,
   onEdit,
   onDuplicate,
   onToggleArchive,
@@ -29,20 +32,28 @@ export const RaceCard: React.FC<RaceCardProps> = ({
     <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between transition shadow-lg hover:shadow-xl group">
       <div>
         {/* Header Badges */}
-        <div className="flex items-center justify-between gap-2 mb-2.5">
+        <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
           <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">
             {template.category || 'General'}
           </span>
-          {template.isSample && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-              Sample
-            </span>
-          )}
-          {template.isArchived && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-950 text-amber-400 border border-amber-800/60">
-              Archived
-            </span>
-          )}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {savedRun && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                In Progress ({savedRun.currentTaskIndex + 1}/{savedRun.templateSnapshot.tasks.length})
+              </span>
+            )}
+            {template.isSample && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-950 text-cyan-400 border border-cyan-800/60">
+                Sample
+              </span>
+            )}
+            {template.isArchived && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-950 text-amber-400 border border-amber-800/60">
+                Archived
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Title */}
@@ -82,13 +93,34 @@ export const RaceCard: React.FC<RaceCardProps> = ({
 
       {/* Action Buttons */}
       <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-        <button
-          onClick={() => onStart(template)}
-          className="flex-1 flex items-center justify-center gap-2 py-2 px-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-orange-500/20 transition cursor-pointer min-h-[40px]"
-        >
-          <Play className="w-3.5 h-3.5 fill-white" />
-          Start Race
-        </button>
+        {savedRun && onResumeSaved ? (
+          <div className="flex-1 flex items-center gap-1.5">
+            <button
+              onClick={() => onResumeSaved(savedRun)}
+              className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-orange-500/20 transition cursor-pointer min-h-[40px]"
+              title={`Resume from Task ${savedRun.currentTaskIndex + 1}`}
+            >
+              <Play className="w-3.5 h-3.5 fill-white" />
+              <span>Resume ({savedRun.currentTaskIndex + 1}/{savedRun.templateSnapshot.tasks.length})</span>
+            </button>
+            <button
+              onClick={() => onStart(template)}
+              className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition cursor-pointer min-h-[40px] flex items-center justify-center"
+              title="Start fresh from beginning"
+              aria-label="Start fresh from beginning"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => onStart(template)}
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-orange-500/20 transition cursor-pointer min-h-[40px]"
+          >
+            <Play className="w-3.5 h-3.5 fill-white" />
+            Start Race
+          </button>
+        )}
 
         <div className="flex items-center gap-1">
           <button

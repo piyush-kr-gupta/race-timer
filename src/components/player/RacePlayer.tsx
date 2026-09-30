@@ -5,7 +5,7 @@ import { StickyTimerHeader } from './StickyTimerHeader';
 import { TaskTimeline } from './TaskTimeline';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { BellRing, ArrowLeft } from 'lucide-react';
+import { BellRing, ArrowLeft, BookmarkCheck } from 'lucide-react';
 
 interface RacePlayerProps {
   tickData: TimerTickData;
@@ -18,6 +18,7 @@ interface RacePlayerProps {
   onRestartRace: () => void;
   onFinishRace: () => void;
   onExitPlayer: () => void;
+  onSaveAndResumeLater?: () => void;
   expiredAlert?: { taskIndex: number; taskName: string; nextTaskName?: string } | null;
   keyboardShortcutsEnabled?: boolean;
 }
@@ -33,6 +34,7 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
   onRestartRace,
   onFinishRace,
   onExitPlayer,
+  onSaveAndResumeLater,
   expiredAlert,
   keyboardShortcutsEnabled = true,
 }) => {
@@ -116,16 +118,30 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
 
   return (
     <div className={`min-h-screen pb-20 ${isFocusMode ? 'bg-black' : ''}`}>
-      {/* Back to dashboard button (hidden in focus mode) */}
+      {/* Back to dashboard & Save button (hidden in focus mode) */}
       {!isFocusMode && (
-        <div className="max-w-4xl mx-auto px-4 pt-3 pb-1 flex items-center justify-between">
-          <button
-            onClick={onExitPlayer}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer py-1 px-2 rounded-lg hover:bg-slate-900"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Dashboard</span>
-          </button>
+        <div className="max-w-4xl mx-auto px-4 pt-3 pb-1 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onExitPlayer}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer py-1.5 px-2.5 rounded-lg hover:bg-slate-900 border border-transparent hover:border-slate-800"
+              title="Return to Dashboard"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Dashboard</span>
+            </button>
+
+            {onSaveAndResumeLater && (
+              <button
+                onClick={onSaveAndResumeLater}
+                className="flex items-center gap-1.5 text-xs font-semibold text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 transition cursor-pointer py-1.5 px-3 rounded-lg shadow-sm"
+                title="Save current progress and resume later"
+              >
+                <BookmarkCheck className="w-3.5 h-3.5" />
+                <span>Save & Resume Later</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <button
@@ -162,6 +178,7 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
         onSkip={onSkip}
         onRestartTask={onRestartTask}
         onFinishRace={handlePromptFinishRace}
+        onSaveAndResumeLater={onSaveAndResumeLater}
       />
 
       {/* Timeline below sticky timer (hidden in Focus mode) */}

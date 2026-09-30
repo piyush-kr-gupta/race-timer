@@ -288,41 +288,92 @@ export class StorageService {
 
   // ===================== ACTIVE RUNTIME STATE =====================
 
-  async getActiveRuntimeState(): Promise<ActiveRunRuntimeState | null> {
+  async getAllActiveRuntimeStates(): Promise<ActiveRunRuntimeState[]> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.ACTIVE_STATE, 'readonly');
       const store = tx.objectStore(STORES.ACTIVE_STATE);
-      const request = store.get('active');
+      const request = store.getAll();
       request.onsuccess = () => {
-        if (request.result) {
-          const { id: _, ...state } = request.result;
-          resolve(state as ActiveRunRuntimeState);
-        } else {
-          resolve(null);
-        }
+        const items = (request.result as any[]) || [];
+        const states: ActiveRunRuntimeState[] = items.map((item) => {
+          const { id: _, ...state } = item;
+          if (!state.runId && item.id) {
+            state.runId = item.id;
+          }
+          return state as ActiveRunRuntimeState;
+        });
+
+        // Filter valid states
+        const validStates = states.filter((s) => s && s.runId && s.templateSnapshot);
+
+        // Sort descending by savedAt or lastTickTimestamp
+        validStates.sort((a, b) => {
+          const timeA = a.savedAt ? new Date(a.savedAt).getTime() : a.lastTickTimestamp || 0;
+          const timeB = b.savedAt ? new Date(b.savedAt).getTime() : b.lastTickTimestamp || 0;
+          return timeB - timeA;
+        });
+
+        resolve(validStates);
       };
       request.onerror = () => reject(request.error);
     });
   }
 
+  async getActiveRuntimeState(runId?: string): Promise<ActiveRunRuntimeState | null> {
+    const all = await this.getAllActiveRuntimeStates();
+    if (!all.length) return null;
+    if (runId) {
+      return all.find((s) => s.runId === runId) || null;
+    }
+    return all[0] || null;
+  }
+
+  async getActiveStateByTemplateId(templateId: string): Promise<ActiveRunRuntimeState | null> {
+    const all = await this.getAllActiveRuntimeStates();
+    return all.find((s) => s.templateId === templateId) || null;
+  }
+
   async saveActiveRuntimeState(state: ActiveRunRuntimeState): Promise<void> {
     const db = await this.getDB();
+    const key = state.runId || 'active';
+    const record = {
+      id: key,
+      ...state,
+      savedAt: state.savedAt || new Date().toISOString(),
+    };
+
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.ACTIVE_STATE, 'readwrite');
       const store = tx.objectStore(STORES.ACTIVE_STATE);
-      const request = store.put({ id: 'active', ...state });
+      const request = store.put(record);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   }
 
-  async clearActiveRuntimeState(): Promise<void> {
+  async deleteActiveRuntimeState(runId: string): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.ACTIVE_STATE, 'readwrite');
       const store = tx.objectStore(STORES.ACTIVE_STATE);
-      const request = store.delete('active');
+      store.delete(runId);
+      // Clean up legacy fallback key if matching
+      store.delete('active');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async clearActiveRuntimeState(runId?: string): Promise<void> {
+    if (runId) {
+      return this.deleteActiveRuntimeState(runId);
+    }
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.ACTIVE_STATE, 'readwrite');
+      const store = tx.objectStore(STORES.ACTIVE_STATE);
+      const request = store.clear();
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
@@ -365,10 +416,11 @@ export class StorageService {
   // ===================== IMPORT / EXPORT / BACKUP =====================
 
   async exportCompleteBackup(): Promise<BackupExportData> {
-    const [templates, runs, settings] = await Promise.all([
+    const [templates, runs, settings, activeStates] = await Promise.all([
       this.getAllTemplates(),
       this.getAllRuns(),
       this.getSettings(),
+      this.getAllActiveRuntimeStates(),
     ]);
 
     const backup: BackupExportData = {
@@ -378,6 +430,7 @@ export class StorageService {
       raceTemplates: templates,
       raceRuns: runs,
       settings,
+      activeStates,
     };
 
     // Update lastBackupAt timestamp in settings
@@ -393,14 +446,16 @@ export class StorageService {
     const db = await this.getDB();
 
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORES.TEMPLATES, STORES.RUNS, STORES.SETTINGS], 'readwrite');
+      const tx = db.transaction([STORES.TEMPLATES, STORES.RUNS, STORES.SETTINGS, STORES.ACTIVE_STATE], 'readwrite');
       const templateStore = tx.objectStore(STORES.TEMPLATES);
       const runStore = tx.objectStore(STORES.RUNS);
       const settingsStore = tx.objectStore(STORES.SETTINGS);
+      const activeStore = tx.objectStore(STORES.ACTIVE_STATE);
 
       if (mode === 'replace') {
         templateStore.clear();
         runStore.clear();
+        activeStore.clear();
       }
 
       let templatesImported = 0;
@@ -420,6 +475,14 @@ export class StorageService {
           if (r && r.id && r.templateId) {
             runStore.put(r);
             runsImported++;
+          }
+        }
+      }
+
+      if (Array.isArray(data.activeStates)) {
+        for (const a of data.activeStates) {
+          if (a && a.runId) {
+            activeStore.put({ id: a.runId, ...a });
           }
         }
       }

@@ -12,6 +12,7 @@ import {
   Eye,
   AlertTriangle,
   Flag,
+  BookmarkCheck,
 } from 'lucide-react';
 import { ProgressBar } from '../common/ProgressBar';
 
@@ -28,6 +29,7 @@ interface StickyTimerHeaderProps {
   onSkip: () => void;
   onRestartTask: () => void;
   onFinishRace: () => void;
+  onSaveAndResumeLater?: () => void;
 }
 
 export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
@@ -43,6 +45,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
   onSkip,
   onRestartTask,
   onFinishRace,
+  onSaveAndResumeLater,
 }) => {
   const isRunning = tickData.timerState === 'RUNNING' || tickData.timerState === 'WARNING' || tickData.timerState === 'OVERTIME';
   const isPaused = tickData.timerState === 'PAUSED';
@@ -250,6 +253,21 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
             <RotateCcw className="w-4 h-4" />
             <span className="hidden sm:inline">RESTART</span>
           </button>
+
+          {/* Save & Resume Later Button */}
+          {onSaveAndResumeLater && (
+            <button
+              onClick={onSaveAndResumeLater}
+              disabled={tickData.timerState === 'IDLE'}
+              className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none text-orange-400 hover:text-orange-300 rounded-2xl transition cursor-pointer text-xs font-semibold min-h-[48px]"
+              title="Save current progress and resume later"
+              aria-label="Save and resume later"
+            >
+              <BookmarkCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">SAVE & RESUME LATER</span>
+              <span className="sm:hidden">SAVE</span>
+            </button>
+          )}
 
           {/* Finish Race Button */}
           <button

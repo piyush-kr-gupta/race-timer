@@ -94,6 +94,8 @@ export interface ActiveRunRuntimeState {
   lastTickTimestamp: number;
   taskRuns: TaskRun[];
   templateSnapshot: RaceTemplate;
+  savedAt?: string; // ISO string when explicitly saved
+  isExplicitlySaved?: boolean; // Flag to distinguish intentional saves from background auto-saves
 }
 
 export interface AppSettings {
@@ -126,6 +128,7 @@ export interface BackupExportData {
   raceTemplates: RaceTemplate[];
   raceRuns: RaceRun[];
   settings: AppSettings;
+  activeStates?: ActiveRunRuntimeState[];
 }
 
 export type ImportMode = 'merge' | 'replace';

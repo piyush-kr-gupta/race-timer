@@ -14,7 +14,7 @@ import { InterruptionModal } from './components/player/InterruptionModal';
 import { RaceResults } from './components/results/RaceResults';
 import { RaceHistoryView } from './components/history/RaceHistoryView';
 import { SettingsView } from './components/settings/SettingsView';
-import { RaceTemplate, RaceRun } from './types/race';
+import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from './types/race';
 
 export function App() {
   const { settings, updateSettings } = useSettings();
@@ -34,6 +34,7 @@ export function App() {
   const {
     tickData,
     currentRun,
+    savedRaces,
     interruptedState,
     expiredNotification,
     initializeRun,
@@ -44,6 +45,9 @@ export function App() {
     restartTask,
     restartRace,
     finishRace,
+    saveCurrentRaceAndExit,
+    resumeRace,
+    discardSavedRace,
     resumeInterrupted,
     discardInterrupted,
   } = useTimerEngine(settings);
@@ -63,6 +67,17 @@ export function App() {
 
   // Confirm delete race modal
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // Prompt when user starts a race template that already has a saved in-progress run
+  const [existingSavedPrompt, setExistingSavedPrompt] = useState<{
+    template: RaceTemplate;
+    savedState: ActiveRunRuntimeState;
+  } | null>(null);
+
+  // Prompt when another race is currently active/running and user starts a new race
+  const [activeRaceSwitchPrompt, setActiveRaceSwitchPrompt] = useState<{
+    newTemplate: RaceTemplate;
+  } | null>(null);
 
   const addToast = (message: string, onUndo?: () => void, type: 'success' | 'error' | 'info' = 'success') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
@@ -95,10 +110,58 @@ export function App() {
   );
 
   // Handlers
-  const handleStartRace = (template: RaceTemplate) => {
+  const startNewRaceDirectly = (template: RaceTemplate) => {
     initializeRun(template);
     setActiveView('player');
     start();
+  };
+
+  const handleStartRace = async (template: RaceTemplate) => {
+    // 1. If this template already has a saved in-progress run, ask user to resume or start fresh
+    const existingSaved = savedRaces.find((s) => s.templateId === template.id);
+    if (existingSaved) {
+      setExistingSavedPrompt({
+        template,
+        savedState: existingSaved,
+      });
+      return;
+    }
+
+    // 2. If a DIFFERENT race is currently active, prompt user so current race is not lost
+    if (isRaceActive && currentRun && currentRun.templateId !== template.id) {
+      setActiveRaceSwitchPrompt({ newTemplate: template });
+      return;
+    }
+
+    startNewRaceDirectly(template);
+  };
+
+  const handleSaveAndResumeLater = async () => {
+    const saved = await saveCurrentRaceAndExit();
+    if (saved) {
+      addToast(`Saved progress for "${saved.templateSnapshot.name}". You can resume anytime from the dashboard.`);
+    }
+    setActiveView('main');
+    setCurrentTab('dashboard');
+  };
+
+  const handleExitPlayer = async () => {
+    if (isRaceActive) {
+      await saveCurrentRaceAndExit();
+      addToast(`Saved progress for "${currentRun?.templateSnapshot.name}".`);
+    }
+    setActiveView('main');
+  };
+
+  const handleResumeSavedRace = (state: ActiveRunRuntimeState) => {
+    resumeRace(state);
+    setActiveView('player');
+    addToast(`Resumed "${state.templateSnapshot.name}" from saved point.`);
+  };
+
+  const handleDiscardSavedRace = async (runId: string) => {
+    await discardSavedRace(runId);
+    addToast('Saved race progress discarded.');
   };
 
   const handleEditRace = (template: RaceTemplate) => {
@@ -159,7 +222,13 @@ export function App() {
           onQuickStart={() => setIsQuickStartOpen(true)}
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
           isRaceActive={isRaceActive}
-          onReturnToActiveRace={() => setActiveView('player')}
+          savedRacesCount={savedRaces.length}
+          onReturnToActiveRace={() => {
+            setActiveView('player');
+            if (!isRaceActive && savedRaces[0]) {
+              resumeRace(savedRaces[0]);
+            }
+          }}
           settings={settings}
           onUpdateSettings={updateSettings}
         />
@@ -189,7 +258,8 @@ export function App() {
             onRestartTask={restartTask}
             onRestartRace={restartRace}
             onFinishRace={finishRace}
-            onExitPlayer={() => setActiveView('main')}
+            onExitPlayer={handleExitPlayer}
+            onSaveAndResumeLater={handleSaveAndResumeLater}
             expiredAlert={expiredNotification}
             keyboardShortcutsEnabled={settings.keyboardShortcutsEnabled}
           />
@@ -230,9 +300,13 @@ export function App() {
               <RaceDashboard
                 templates={templates}
                 runs={runs}
+                savedRaces={savedRaces}
                 isRaceActive={isRaceActive}
                 activeRaceName={currentRun?.templateSnapshot.name}
+                activeRunId={currentRun?.id}
                 onResumeActiveRace={() => setActiveView('player')}
+                onResumeSavedRace={handleResumeSavedRace}
+                onDiscardSavedRace={handleDiscardSavedRace}
                 onCreateRace={handleCreateRace}
                 onStartRace={handleStartRace}
                 onEditRace={handleEditRace}
@@ -296,6 +370,52 @@ export function App() {
         confirmText="Delete Race"
         onConfirm={handleConfirmDeleteRace}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* CONFIRM RESUME OR START FRESH FOR TEMPLATE WITH EXISTING SAVED PROGRESS */}
+      <ConfirmDialog
+        isOpen={Boolean(existingSavedPrompt)}
+        title="Saved Progress Found"
+        message={`You have saved progress for "${existingSavedPrompt?.template.name}" at Task ${(existingSavedPrompt?.savedState.currentTaskIndex || 0) + 1}. Would you like to resume where you left off, or start a brand new run from the beginning?`}
+        confirmText="Resume Saved Progress"
+        cancelText="Start Fresh"
+        onConfirm={() => {
+          if (existingSavedPrompt) {
+            handleResumeSavedRace(existingSavedPrompt.savedState);
+            setExistingSavedPrompt(null);
+          }
+        }}
+        onCancel={async () => {
+          if (existingSavedPrompt) {
+            await discardSavedRace(existingSavedPrompt.savedState.runId);
+            startNewRaceDirectly(existingSavedPrompt.template);
+            setExistingSavedPrompt(null);
+          }
+        }}
+      />
+
+      {/* CONFIRM SAVE CURRENT ACTIVE RACE WHEN SWITCHING TO ANOTHER RACE */}
+      <ConfirmDialog
+        isOpen={Boolean(activeRaceSwitchPrompt)}
+        title="Active Race in Progress"
+        message={`"${currentRun?.templateSnapshot.name}" is currently active. Would you like to save its progress so you can resume it later and start "${activeRaceSwitchPrompt?.newTemplate.name}"?`}
+        confirmText="Save Progress & Start New"
+        cancelText="Discard Current & Start"
+        onConfirm={async () => {
+          if (activeRaceSwitchPrompt) {
+            await saveCurrentRaceAndExit();
+            addToast(`Saved progress for "${currentRun?.templateSnapshot.name}".`);
+            startNewRaceDirectly(activeRaceSwitchPrompt.newTemplate);
+            setActiveRaceSwitchPrompt(null);
+          }
+        }}
+        onCancel={async () => {
+          if (activeRaceSwitchPrompt) {
+            if (currentRun) await discardSavedRace(currentRun.id);
+            startNewRaceDirectly(activeRaceSwitchPrompt.newTemplate);
+            setActiveRaceSwitchPrompt(null);
+          }
+        }}
       />
 
       {/* TOAST CONTAINER */}
