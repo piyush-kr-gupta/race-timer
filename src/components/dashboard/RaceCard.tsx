@@ -1,4 +1,5 @@
 import { ActiveRunRuntimeState, RaceTemplate, RaceRun } from '../../types/race';
+import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { formatDurationHuman } from '../../utils/duration';
 import { Play, Edit3, Copy, Trash2, Archive, ArchiveRestore, Clock, CheckCircle, RotateCcw } from 'lucide-react';
 
@@ -28,6 +29,9 @@ export const RaceCard: React.FC<RaceCardProps> = ({
   const enabledTasks = template.tasks.filter((t) => t.enabled);
   const totalSeconds = enabledTasks.reduce((sum, t) => sum + t.durationSeconds, 0);
 
+  // Only consider savedRun active if it's not fully completed
+  const activeSavedRun = savedRun && !isRunFullyCompleted(savedRun) ? savedRun : undefined;
+
   return (
     <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between transition shadow-lg hover:shadow-xl group">
       <div>
@@ -37,10 +41,10 @@ export const RaceCard: React.FC<RaceCardProps> = ({
             {template.category || 'General'}
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {savedRun && (
+            {activeSavedRun && (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                In Progress ({savedRun.currentTaskIndex + 1}/{savedRun.templateSnapshot.tasks.length})
+                In Progress ({activeSavedRun.currentTaskIndex + 1}/{activeSavedRun.templateSnapshot.tasks.length})
               </span>
             )}
             {template.isSample && (
@@ -93,15 +97,15 @@ export const RaceCard: React.FC<RaceCardProps> = ({
 
       {/* Action Buttons */}
       <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-        {savedRun && onResumeSaved ? (
+        {activeSavedRun && onResumeSaved ? (
           <div className="flex-1 flex items-center gap-1.5">
             <button
-              onClick={() => onResumeSaved(savedRun)}
+              onClick={() => onResumeSaved(activeSavedRun)}
               className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-orange-500/20 transition cursor-pointer min-h-[40px]"
-              title={`Resume from Task ${savedRun.currentTaskIndex + 1}`}
+              title={`Resume from Task ${activeSavedRun.currentTaskIndex + 1}`}
             >
               <Play className="w-3.5 h-3.5 fill-white" />
-              <span>Resume ({savedRun.currentTaskIndex + 1}/{savedRun.templateSnapshot.tasks.length})</span>
+              <span>Resume ({activeSavedRun.currentTaskIndex + 1}/{activeSavedRun.templateSnapshot.tasks.length})</span>
             </button>
             <button
               onClick={() => onStart(template)}

@@ -49,6 +49,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
 }) => {
   const isRunning = tickData.timerState === 'RUNNING' || tickData.timerState === 'WARNING' || tickData.timerState === 'OVERTIME';
   const isPaused = tickData.timerState === 'PAUSED';
+  const isCompleted = tickData.timerState === 'RACE_COMPLETED';
   const isOvertime = tickData.isOvertime;
   const isWarning = tickData.isWarning;
   const isCountdownWarning = tickData.isCountdownWarning;
@@ -210,18 +211,19 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           ) : (
             <button
               onClick={onPlay}
-              className="flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold rounded-2xl shadow-lg shadow-orange-500/25 transition cursor-pointer text-sm min-h-[48px]"
+              disabled={isCompleted}
+              className="flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 disabled:pointer-events-none text-white font-bold rounded-2xl shadow-lg shadow-orange-500/25 transition cursor-pointer text-sm min-h-[48px]"
               aria-label="Start or resume timer"
             >
               <Play className="w-5 h-5 fill-white" />
-              <span>{tickData.timerState === 'IDLE' ? 'START RACE' : 'RESUME'}</span>
+              <span>{isCompleted ? 'COMPLETED' : tickData.timerState === 'IDLE' ? 'START RACE' : 'RESUME'}</span>
             </button>
           )}
 
           {/* Complete Task Button */}
           <button
             onClick={onComplete}
-            disabled={tickData.timerState === 'IDLE'}
+            disabled={isCompleted || tickData.timerState === 'IDLE'}
             className="flex items-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:pointer-events-none text-white font-bold rounded-2xl shadow-md transition cursor-pointer text-sm min-h-[48px]"
             title="Complete current task and advance (Enter)"
             aria-label="Complete task"
@@ -233,7 +235,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           {/* Skip Task Button */}
           <button
             onClick={onSkip}
-            disabled={tickData.timerState === 'IDLE'}
+            disabled={isCompleted || tickData.timerState === 'IDLE'}
             className="flex items-center gap-1.5 px-4 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-slate-300 hover:text-white rounded-2xl transition cursor-pointer text-xs font-semibold min-h-[48px]"
             title="Skip current task (S)"
             aria-label="Skip task"
@@ -245,7 +247,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           {/* Restart Task Button */}
           <button
             onClick={onRestartTask}
-            disabled={tickData.timerState === 'IDLE'}
+            disabled={isCompleted || tickData.timerState === 'IDLE'}
             className="flex items-center gap-1.5 px-4 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-slate-300 hover:text-white rounded-2xl transition cursor-pointer text-xs font-semibold min-h-[48px]"
             title="Restart current task timer (R)"
             aria-label="Restart task"
@@ -258,7 +260,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           {onSaveAndResumeLater && (
             <button
               onClick={onSaveAndResumeLater}
-              disabled={tickData.timerState === 'IDLE'}
+              disabled={isCompleted || tickData.timerState === 'IDLE'}
               className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none text-orange-400 hover:text-orange-300 rounded-2xl transition cursor-pointer text-xs font-semibold min-h-[48px]"
               title="Save current progress and resume later"
               aria-label="Save and resume later"
@@ -272,7 +274,7 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           {/* Finish Race Button */}
           <button
             onClick={onFinishRace}
-            disabled={tickData.timerState === 'IDLE'}
+            disabled={isCompleted || tickData.timerState === 'IDLE'}
             className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 border border-slate-700 hover:border-slate-600 disabled:opacity-40 disabled:pointer-events-none text-slate-400 hover:text-slate-200 rounded-2xl transition cursor-pointer text-xs font-semibold min-h-[48px]"
             title="Finish entire race early"
             aria-label="Finish race"

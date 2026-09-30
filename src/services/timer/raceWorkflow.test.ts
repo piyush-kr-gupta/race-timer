@@ -200,4 +200,39 @@ describe('Race Workflow and Snapshot Integrity', () => {
     expect(finalRunA.taskRuns[2].actualSeconds).toBe(100);
     expect(finalRunA.totalActualSeconds).toBe(260);
   });
+
+  it('ensures completed race cannot be saved as active runtime state and triggers completion callback', () => {
+    const testTemplate: RaceTemplate = {
+      id: 'race-complete-cleanup',
+      name: 'Single Task Race',
+      category: 'Test',
+      tags: [],
+      createdAt: '2026-09-24T00:00:00.000Z',
+      updatedAt: '2026-09-24T00:00:00.000Z',
+      tasks: [
+        { id: 'task-1', name: 'Task 1', durationSeconds: 60, order: 0, enabled: true },
+      ],
+    };
+
+    let completedRunResult: any = null;
+    engine.setRaceCompletedCallback((run) => {
+      completedRunResult = run;
+    });
+
+    engine.initializeRun(testTemplate);
+    engine.start();
+
+    // Advance 30s and complete the single task
+    vi.advanceTimersByTime(30000);
+    engine.completeTask();
+
+    // When the last task completes, advanceToNextTask triggers finishRace()
+    expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+    expect(completedRunResult).not.toBeNull();
+    expect(completedRunResult.status).toBe('completed');
+
+    // Engine must return null for runtime state once completed
+    expect(engine.getCurrentRuntimeState()).toBeNull();
+    expect(engine.pauseAndGetState()).toBeNull();
+  });
 });

@@ -18,6 +18,23 @@ const STORES = {
   ACTIVE_STATE: 'activeRuntimeState',
 } as const;
 
+export function isRunFullyCompleted(state: ActiveRunRuntimeState): boolean {
+  if (!state) return true;
+  if (state.timerState === 'RACE_COMPLETED' || state.timerState === 'RACE_CANCELLED') {
+    return true;
+  }
+  if (state.taskRuns && state.taskRuns.length > 0) {
+    const enabledTasks = state.taskRuns.filter((t) => t.taskSnapshot.enabled);
+    if (
+      enabledTasks.length > 0 &&
+      enabledTasks.every((t) => t.status === 'completed' || t.status === 'expired' || t.status === 'skipped')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export class StorageService {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -291,7 +308,7 @@ export class StorageService {
   async getAllActiveRuntimeStates(): Promise<ActiveRunRuntimeState[]> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORES.ACTIVE_STATE, 'readonly');
+      const tx = db.transaction(STORES.ACTIVE_STATE, 'readwrite');
       const store = tx.objectStore(STORES.ACTIVE_STATE);
       const request = store.getAll();
       request.onsuccess = () => {
@@ -304,8 +321,17 @@ export class StorageService {
           return state as ActiveRunRuntimeState;
         });
 
-        // Filter valid states
-        const validStates = states.filter((s) => s && s.runId && s.templateSnapshot);
+        // Filter valid states and clean up any completed runs
+        const validStates: ActiveRunRuntimeState[] = [];
+        for (const s of states) {
+          if (!s || !s.runId || !s.templateSnapshot) continue;
+          if (isRunFullyCompleted(s)) {
+            // Self-heal: delete completed run from active store
+            store.delete(s.runId);
+            continue;
+          }
+          validStates.push(s);
+        }
 
         // Sort descending by savedAt or lastTickTimestamp
         validStates.sort((a, b) => {
@@ -335,6 +361,12 @@ export class StorageService {
   }
 
   async saveActiveRuntimeState(state: ActiveRunRuntimeState): Promise<void> {
+    if (isRunFullyCompleted(state)) {
+      if (state.runId) {
+        await this.deleteActiveRuntimeState(state.runId);
+      }
+      return;
+    }
     const db = await this.getDB();
     const key = state.runId || 'active';
     const record = {

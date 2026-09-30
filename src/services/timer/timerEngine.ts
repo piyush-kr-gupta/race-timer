@@ -70,6 +70,7 @@ export class TimerEngine {
   private stateListeners: Set<StateChangeListener> = new Set();
   private taskExpiredListeners: Set<TaskExpiredListener> = new Set();
   private persistCallback?: (state: ActiveRunRuntimeState) => void;
+  private raceCompletedCallback?: (run: RaceRun) => void;
 
   constructor(settings: AppSettings) {
     this.settings = settings;
@@ -83,6 +84,10 @@ export class TimerEngine {
 
   setPersistCallback(cb: (state: ActiveRunRuntimeState) => void) {
     this.persistCallback = cb;
+  }
+
+  setRaceCompletedCallback(cb: (run: RaceRun) => void) {
+    this.raceCompletedCallback = cb;
   }
 
   subscribe(listener: TimerListener): () => void {
@@ -350,7 +355,9 @@ export class TimerEngine {
     }
 
     this.notify();
-    this.persistState();
+    if (this.raceCompletedCallback) {
+      this.raceCompletedCallback(this.run);
+    }
   }
 
   // ===================== TASK ADVANCEMENT =====================
@@ -603,6 +610,7 @@ export class TimerEngine {
 
   private persistState() {
     if (!this.run || !this.template || !this.persistCallback) return;
+    if (this.timerState === 'RACE_COMPLETED' || this.timerState === 'RACE_CANCELLED') return;
 
     const state: ActiveRunRuntimeState = {
       runId: this.run.id,
@@ -665,6 +673,13 @@ export class TimerEngine {
 
   getCurrentRuntimeState(): ActiveRunRuntimeState | null {
     if (!this.run || !this.template) return null;
+    if (this.timerState === 'RACE_COMPLETED' || this.timerState === 'RACE_CANCELLED') return null;
+
+    const enabledTasks = this.run.taskRuns.filter((t) => t.taskSnapshot.enabled);
+    if (enabledTasks.length > 0 && enabledTasks.every((t) => t.status === 'completed' || t.status === 'expired' || t.status === 'skipped')) {
+      return null;
+    }
+
     return {
       runId: this.run.id,
       templateId: this.template.id,
@@ -683,6 +698,9 @@ export class TimerEngine {
   }
 
   pauseAndGetState(): ActiveRunRuntimeState | null {
+    if (this.timerState === 'RACE_COMPLETED' || this.timerState === 'RACE_CANCELLED') {
+      return null;
+    }
     if (this.timerState === 'RUNNING' || this.timerState === 'WARNING' || this.timerState === 'OVERTIME') {
       this.pause();
     }

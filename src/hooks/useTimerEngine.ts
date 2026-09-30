@@ -15,15 +15,6 @@ export function useTimerEngine(settings: AppSettings) {
     nextTaskName?: string;
   } | null>(null);
 
-  // Initialize engine once
-  if (!engineRef.current) {
-    const engine = new TimerEngine(settings);
-    engine.setPersistCallback((state) => {
-      storage.saveActiveRuntimeState(state).catch(console.error);
-    });
-    engineRef.current = engine;
-  }
-
   const refreshSavedRaces = useCallback(async () => {
     try {
       const states = await storage.getAllActiveRuntimeStates();
@@ -32,6 +23,27 @@ export function useTimerEngine(settings: AppSettings) {
       console.error('Failed to load saved races:', e);
     }
   }, []);
+
+  const refreshSavedRacesRef = useRef(refreshSavedRaces);
+  refreshSavedRacesRef.current = refreshSavedRaces;
+
+  // Initialize engine once
+  if (!engineRef.current) {
+    const engine = new TimerEngine(settings);
+    engine.setPersistCallback((state) => {
+      storage.saveActiveRuntimeState(state).catch(console.error);
+    });
+    engine.setRaceCompletedCallback(async (run) => {
+      try {
+        await storage.saveRun(run);
+        await storage.deleteActiveRuntimeState(run.id);
+        await refreshSavedRacesRef.current();
+      } catch (e) {
+        console.error('Failed to handle race completed callback:', e);
+      }
+    });
+    engineRef.current = engine;
+  }
 
   // Update engine settings when settings change
   useEffect(() => {
@@ -73,6 +85,18 @@ export function useTimerEngine(settings: AppSettings) {
     };
   }, []);
 
+  // Ensure completed races are cleanly removed from active runtime state
+  useEffect(() => {
+    if (tickData?.timerState === 'RACE_COMPLETED') {
+      const runId = currentRun?.id || engineRef.current?.getCurrentRun()?.id;
+      if (runId) {
+        storage.deleteActiveRuntimeState(runId).then(() => {
+          refreshSavedRaces();
+        }).catch(console.error);
+      }
+    }
+  }, [tickData?.timerState, currentRun?.id, refreshSavedRaces]);
+
   const initializeRun = useCallback((template: RaceTemplate) => {
     if (!engineRef.current) return null;
     const run = engineRef.current.initializeRun(template);
@@ -94,16 +118,26 @@ export function useTimerEngine(settings: AppSettings) {
     const run = engineRef.current?.getCurrentRun();
     if (run) {
       storage.saveRun(run).catch(console.error);
+      if (run.status === 'completed') {
+        storage.deleteActiveRuntimeState(run.id).then(() => {
+          refreshSavedRaces();
+        }).catch(console.error);
+      }
     }
-  }, []);
+  }, [refreshSavedRaces]);
 
   const skipTask = useCallback(() => {
     engineRef.current?.skipTask();
     const run = engineRef.current?.getCurrentRun();
     if (run) {
       storage.saveRun(run).catch(console.error);
+      if (run.status === 'completed') {
+        storage.deleteActiveRuntimeState(run.id).then(() => {
+          refreshSavedRaces();
+        }).catch(console.error);
+      }
     }
-  }, []);
+  }, [refreshSavedRaces]);
 
   const restartTask = useCallback(() => {
     engineRef.current?.restartTask();

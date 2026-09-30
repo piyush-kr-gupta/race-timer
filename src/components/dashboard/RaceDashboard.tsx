@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from '../../types/race';
+import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { RaceCard } from './RaceCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { formatTime } from '../../utils/duration';
@@ -47,6 +48,11 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
 
   const [discardTarget, setDiscardTarget] = useState<{ runId: string; name: string } | null>(null);
 
+  // Filter out any completed races from saved runs
+  const activeSavedRaces = useMemo(() => {
+    return savedRaces.filter((s) => !isRunFullyCompleted(s));
+  }, [savedRaces]);
+
   // Collect unique categories
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -59,13 +65,13 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   // Map saved races by templateId
   const savedRacesByTemplateId = useMemo(() => {
     const map = new Map<string, ActiveRunRuntimeState>();
-    for (const s of savedRaces) {
+    for (const s of activeSavedRaces) {
       if (!map.has(s.templateId)) {
         map.set(s.templateId, s);
       }
     }
     return map;
-  }, [savedRaces]);
+  }, [activeSavedRaces]);
 
   // Map latest run for each template
   const latestRunsByTemplate = useMemo(() => {
@@ -123,7 +129,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   return (
     <div className="space-y-6 pb-12">
       {/* IN-PROGRESS / SAVED RACES SECTION */}
-      {savedRaces.length > 0 ? (
+      {activeSavedRaces.length > 0 ? (
         <div className="bg-slate-900/90 border border-orange-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div className="flex items-center gap-2.5">
@@ -134,7 +140,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
                 <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                   <span>In-Progress & Saved Races</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                    {savedRaces.length}
+                    {activeSavedRaces.length}
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -145,7 +151,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {savedRaces.map((state) => {
+            {activeSavedRaces.map((state) => {
               const currentTask = state.templateSnapshot.tasks[state.currentTaskIndex];
               const completedCount = state.taskRuns.filter(
                 (t) => t.status === 'completed' || t.status === 'expired'

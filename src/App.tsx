@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSettings } from './hooks/useSettings';
 import { useRaces } from './hooks/useRaces';
 import { useTimerEngine } from './hooks/useTimerEngine';
@@ -15,6 +15,7 @@ import { RaceResults } from './components/results/RaceResults';
 import { RaceHistoryView } from './components/history/RaceHistoryView';
 import { SettingsView } from './components/settings/SettingsView';
 import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from './types/race';
+import { storage, isRunFullyCompleted } from './services/storage/indexedDb';
 
 export function App() {
   const { settings, updateSettings } = useSettings();
@@ -37,6 +38,7 @@ export function App() {
     savedRaces,
     interruptedState,
     expiredNotification,
+    refreshSavedRaces,
     initializeRun,
     start,
     pause,
@@ -93,13 +95,26 @@ export function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Watch for race completion transition
+  // Filter out any fully completed runs from saved races
+  const activeSavedRaces = useMemo(() => {
+    return savedRaces.filter((s) => !isRunFullyCompleted(s));
+  }, [savedRaces]);
+
+  // Watch for race completion transition & clean up active state
   useEffect(() => {
-    if (tickData?.timerState === 'RACE_COMPLETED' && activeView === 'player' && currentRun) {
-      setViewingResultRun(currentRun);
-      setActiveView('results');
+    if (tickData?.timerState === 'RACE_COMPLETED') {
+      const run = currentRun;
+      if (run) {
+        storage.deleteActiveRuntimeState(run.id).then(() => {
+          refreshSavedRaces();
+        }).catch(console.error);
+      }
+      if (activeView === 'player' && currentRun) {
+        setViewingResultRun(currentRun);
+        setActiveView('results');
+      }
     }
-  }, [tickData?.timerState, activeView, currentRun]);
+  }, [tickData?.timerState, activeView, currentRun, refreshSavedRaces]);
 
   const isRaceActive = Boolean(
     tickData &&
@@ -118,7 +133,7 @@ export function App() {
 
   const handleStartRace = async (template: RaceTemplate) => {
     // 1. If this template already has a saved in-progress run, ask user to resume or start fresh
-    const existingSaved = savedRaces.find((s) => s.templateId === template.id);
+    const existingSaved = activeSavedRaces.find((s) => s.templateId === template.id);
     if (existingSaved) {
       setExistingSavedPrompt({
         template,
@@ -222,11 +237,11 @@ export function App() {
           onQuickStart={() => setIsQuickStartOpen(true)}
           onOpenShortcuts={() => setIsShortcutsOpen(true)}
           isRaceActive={isRaceActive}
-          savedRacesCount={savedRaces.length}
+          savedRacesCount={activeSavedRaces.length}
           onReturnToActiveRace={() => {
             setActiveView('player');
-            if (!isRaceActive && savedRaces[0]) {
-              resumeRace(savedRaces[0]);
+            if (!isRaceActive && activeSavedRaces[0]) {
+              resumeRace(activeSavedRaces[0]);
             }
           }}
           settings={settings}
@@ -300,7 +315,7 @@ export function App() {
               <RaceDashboard
                 templates={templates}
                 runs={runs}
-                savedRaces={savedRaces}
+                savedRaces={activeSavedRaces}
                 isRaceActive={isRaceActive}
                 activeRaceName={currentRun?.templateSnapshot.name}
                 activeRunId={currentRun?.id}
