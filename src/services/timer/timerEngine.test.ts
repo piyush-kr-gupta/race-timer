@@ -437,4 +437,94 @@ describe('TimerEngine', () => {
     expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
     expect(engine.getTickData().paceDeltaSeconds).toBe(25);
   });
+
+  describe('Session Task Manager (in-session to-do checklist)', () => {
+    it('initializes a run with an empty sessionTasks array by default', () => {
+      const run = engine.initializeRun(mockTemplate);
+      expect(run.sessionTasks).toEqual([]);
+    });
+
+    it('adds, toggles, updates, and deletes session tasks', () => {
+      engine.initializeRun(mockTemplate);
+
+      // Add task
+      const task1 = engine.addSessionTask('20 Push-ups');
+      expect(task1).not.toBeNull();
+      expect(task1?.title).toBe('20 Push-ups');
+      expect(task1?.completed).toBe(false);
+      expect(task1?.completedAt).toBeUndefined();
+
+      const task2 = engine.addSessionTask('10 Squats');
+      expect(task2?.title).toBe('10 Squats');
+
+      let currentRun = engine.getCurrentRun();
+      expect(currentRun?.sessionTasks?.length).toBe(2);
+
+      // Toggle task 1 -> completed
+      engine.toggleSessionTask(task1!.id);
+      currentRun = engine.getCurrentRun();
+      const updatedTask1 = currentRun?.sessionTasks?.find((t) => t.id === task1!.id);
+      expect(updatedTask1?.completed).toBe(true);
+      expect(updatedTask1?.completedAt).toBeDefined();
+
+      // Toggle task 1 back -> uncompleted
+      engine.toggleSessionTask(task1!.id);
+      currentRun = engine.getCurrentRun();
+      const uncompletedTask1 = currentRun?.sessionTasks?.find((t) => t.id === task1!.id);
+      expect(uncompletedTask1?.completed).toBe(false);
+      expect(uncompletedTask1?.completedAt).toBeUndefined();
+
+      // Update task 2 title
+      engine.updateSessionTask(task2!.id, '15 Squats');
+      currentRun = engine.getCurrentRun();
+      const updatedTask2 = currentRun?.sessionTasks?.find((t) => t.id === task2!.id);
+      expect(updatedTask2?.title).toBe('15 Squats');
+
+      // Delete task 1
+      engine.deleteSessionTask(task1!.id);
+      currentRun = engine.getCurrentRun();
+      expect(currentRun?.sessionTasks?.length).toBe(1);
+      expect(currentRun?.sessionTasks?.[0].id).toBe(task2!.id);
+    });
+
+    it('clears completed session tasks', () => {
+      engine.initializeRun(mockTemplate);
+
+      const t1 = engine.addSessionTask('Task 1');
+      const t2 = engine.addSessionTask('Task 2');
+      const t3 = engine.addSessionTask('Task 3');
+
+      engine.toggleSessionTask(t1!.id);
+      engine.toggleSessionTask(t3!.id);
+
+      engine.clearCompletedSessionTasks();
+
+      const currentRun = engine.getCurrentRun();
+      expect(currentRun?.sessionTasks?.length).toBe(1);
+      expect(currentRun?.sessionTasks?.[0].id).toBe(t2!.id);
+    });
+
+    it('persists and recovers session tasks across interruptions / state recovery', () => {
+      engine.initializeRun(mockTemplate);
+      const t1 = engine.addSessionTask('30-second plank');
+      engine.toggleSessionTask(t1!.id);
+
+      const runtimeState = engine.getCurrentRuntimeState();
+      expect(runtimeState).not.toBeNull();
+      expect(runtimeState?.sessionTasks).toBeDefined();
+      expect(runtimeState?.sessionTasks?.length).toBe(1);
+      expect(runtimeState?.sessionTasks?.[0].title).toBe('30-second plank');
+      expect(runtimeState?.sessionTasks?.[0].completed).toBe(true);
+
+      // Create a fresh engine and recover state
+      const freshEngine = new TimerEngine(DEFAULT_SETTINGS);
+      freshEngine.recover(runtimeState!);
+
+      const recoveredRun = freshEngine.getCurrentRun();
+      expect(recoveredRun?.sessionTasks?.length).toBe(1);
+      expect(recoveredRun?.sessionTasks?.[0].title).toBe('30-second plank');
+      expect(recoveredRun?.sessionTasks?.[0].completed).toBe(true);
+      freshEngine.destroy();
+    });
+  });
 });

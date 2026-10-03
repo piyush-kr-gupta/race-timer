@@ -52,6 +52,11 @@ export function App() {
     discardSavedRace,
     resumeInterrupted,
     discardInterrupted,
+    addSessionTask,
+    toggleSessionTask,
+    deleteSessionTask,
+    updateSessionTask,
+    clearCompletedSessionTasks,
   } = useTimerEngine(settings);
 
   // Navigation State
@@ -277,6 +282,11 @@ export function App() {
             onSaveAndResumeLater={handleSaveAndResumeLater}
             expiredAlert={expiredNotification}
             keyboardShortcutsEnabled={settings.keyboardShortcutsEnabled}
+            onAddSessionTask={addSessionTask}
+            onToggleSessionTask={toggleSessionTask}
+            onDeleteSessionTask={deleteSessionTask}
+            onUpdateSessionTask={updateSessionTask}
+            onClearCompletedSessionTasks={clearCompletedSessionTasks}
           />
         )}
 

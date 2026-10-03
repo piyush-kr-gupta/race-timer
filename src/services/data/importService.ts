@@ -101,6 +101,7 @@ export class ImportService {
             totalOvertimeSeconds: Math.max(0, Number(r.totalOvertimeSeconds) || 0),
             totalPausedSeconds: Math.max(0, Number(r.totalPausedSeconds) || 0),
             taskRuns: Array.isArray(r.taskRuns) ? r.taskRuns : [],
+            sessionTasks: Array.isArray(r.sessionTasks) ? r.sessionTasks : undefined,
           });
         }
       }

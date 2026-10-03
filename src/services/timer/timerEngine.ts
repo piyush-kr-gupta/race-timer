@@ -5,6 +5,7 @@ import {
   TimerState,
   AppSettings,
   ActiveRunRuntimeState,
+  SessionTaskItem,
 } from '../../types/race';
 import { audio } from './audioService';
 import { wakeLock } from './wakeLock';
@@ -125,26 +126,32 @@ export class TimerEngine {
     const totalAllocated = enabledTasks.reduce((sum, t) => sum + t.durationSeconds, 0);
 
     const nowIso = new Date().toISOString();
-    const run: RaceRun = existingRun || {
-      id: `run-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      templateId: template.id,
-      templateSnapshot: JSON.parse(JSON.stringify(template)),
-      startedAt: nowIso,
-      status: 'running',
-      totalAllocatedSeconds: totalAllocated,
-      totalActualSeconds: 0,
-      totalOvertimeSeconds: 0,
-      totalPausedSeconds: 0,
-      taskRuns: template.tasks.map((task) => ({
-        taskId: task.id,
-        taskSnapshot: { ...task },
-        allocatedSeconds: task.durationSeconds,
-        actualSeconds: 0,
-        overtimeSeconds: 0,
-        status: task.enabled ? 'pending' : 'skipped',
-        events: [],
-      })),
-    };
+    const run: RaceRun = existingRun
+      ? {
+          ...existingRun,
+          sessionTasks: existingRun.sessionTasks ? [...existingRun.sessionTasks] : [],
+        }
+      : {
+          id: `run-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          templateId: template.id,
+          templateSnapshot: JSON.parse(JSON.stringify(template)),
+          startedAt: nowIso,
+          status: 'running',
+          totalAllocatedSeconds: totalAllocated,
+          totalActualSeconds: 0,
+          totalOvertimeSeconds: 0,
+          totalPausedSeconds: 0,
+          sessionTasks: [],
+          taskRuns: template.tasks.map((task) => ({
+            taskId: task.id,
+            taskSnapshot: { ...task },
+            allocatedSeconds: task.durationSeconds,
+            actualSeconds: 0,
+            overtimeSeconds: 0,
+            status: task.enabled ? 'pending' : 'skipped',
+            events: [],
+          })),
+        };
 
     this.run = run;
     this.currentTaskIndex = this.findNextEnabledTaskIndex(-1);
@@ -643,6 +650,7 @@ export class TimerEngine {
       lastTickTimestamp: Date.now(),
       taskRuns: this.run.taskRuns,
       templateSnapshot: this.template,
+      sessionTasks: this.run.sessionTasks ? [...this.run.sessionTasks] : [],
     };
 
     this.persistCallback(state);
@@ -675,6 +683,7 @@ export class TimerEngine {
       totalOvertimeSeconds: 0,
       totalPausedSeconds: Math.floor(saved.raceAccumulatedPausedMs / 1000),
       taskRuns: saved.taskRuns,
+      sessionTasks: saved.sessionTasks ? [...saved.sessionTasks] : [],
     };
 
     if (saved.timerState === 'RUNNING' || saved.timerState === 'WARNING' || saved.timerState === 'OVERTIME') {
@@ -711,6 +720,7 @@ export class TimerEngine {
       lastTickTimestamp: Date.now(),
       taskRuns: this.run.taskRuns,
       templateSnapshot: this.template,
+      sessionTasks: this.run.sessionTasks ? [...this.run.sessionTasks] : [],
     };
   }
 
@@ -727,6 +737,73 @@ export class TimerEngine {
       state.isExplicitlySaved = true;
     }
     return state;
+  }
+
+  // ===================== SESSION TASK MANAGER =====================
+
+  addSessionTask(title: string): SessionTaskItem | null {
+    if (!this.run) return null;
+    const trimmed = title.trim();
+    if (!trimmed) return null;
+
+    const newTask: SessionTaskItem = {
+      id: `stask-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: trimmed,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!this.run.sessionTasks) {
+      this.run.sessionTasks = [];
+    }
+    this.run.sessionTasks.push(newTask);
+    this.persistState();
+    this.notify();
+    return newTask;
+  }
+
+  toggleSessionTask(taskId: string): void {
+    if (!this.run || !this.run.sessionTasks) return;
+    const task = this.run.sessionTasks.find((t) => t.id === taskId);
+    if (task) {
+      task.completed = !task.completed;
+      task.completedAt = task.completed ? new Date().toISOString() : undefined;
+      this.persistState();
+      this.notify();
+    }
+  }
+
+  deleteSessionTask(taskId: string): void {
+    if (!this.run || !this.run.sessionTasks) return;
+    this.run.sessionTasks = this.run.sessionTasks.filter((t) => t.id !== taskId);
+    this.persistState();
+    this.notify();
+  }
+
+  updateSessionTask(taskId: string, title: string): void {
+    if (!this.run || !this.run.sessionTasks) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const task = this.run.sessionTasks.find((t) => t.id === taskId);
+    if (task) {
+      task.title = trimmed;
+      this.persistState();
+      this.notify();
+    }
+  }
+
+  clearCompletedSessionTasks(): void {
+    if (!this.run || !this.run.sessionTasks) return;
+    this.run.sessionTasks = this.run.sessionTasks.filter((t) => !t.completed);
+    this.persistState();
+    this.notify();
+  }
+
+  reorderSessionTasks(tasks: SessionTaskItem[]): void {
+    if (!this.run) return;
+    this.run.sessionTasks = tasks;
+    this.persistState();
+    this.notify();
   }
 
   clearCurrentRun(): void {

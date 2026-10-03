@@ -14,6 +14,8 @@ import {
   AlertCircle,
   SkipForward,
   Edit,
+  CheckSquare,
+  Circle,
 } from 'lucide-react';
 
 interface RaceResultsProps {
@@ -265,6 +267,68 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Session Task Manager Checklist (if tasks were logged during this session) */}
+      {run.sessionTasks && run.sessionTasks.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-orange-500/20 text-orange-400">
+                <CheckSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+                  Task Manager Checklist
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {run.sessionTasks.filter((t) => t.completed).length} of {run.sessionTasks.length} tasks completed during this session
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300">
+              {Math.round(
+                (run.sessionTasks.filter((t) => t.completed).length / run.sessionTasks.length) * 100
+              )}
+              % completed
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-800/60 rounded-xl bg-slate-950/50 border border-slate-800/80 overflow-hidden">
+            {run.sessionTasks.map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center justify-between px-4 py-3 gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {task.completed ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                  )}
+                  <span
+                    className={`text-sm ${
+                      task.completed
+                        ? 'line-through text-slate-400'
+                        : 'text-slate-200 font-medium'
+                    } truncate`}
+                  >
+                    {task.title}
+                  </span>
+                </div>
+                {task.completed && task.completedAt && (
+                  <span className="text-[11px] text-slate-500 font-mono flex-shrink-0">
+                    Completed at{' '}
+                    {new Date(task.completedAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

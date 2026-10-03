@@ -3,6 +3,7 @@ import { TimerTickData } from '../../services/timer/timerEngine';
 import { RaceRun } from '../../types/race';
 import { StickyTimerHeader } from './StickyTimerHeader';
 import { TaskTimeline } from './TaskTimeline';
+import { SessionTaskManager } from './SessionTaskManager';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { BellRing, ArrowLeft, BookmarkCheck } from 'lucide-react';
@@ -21,6 +22,11 @@ interface RacePlayerProps {
   onSaveAndResumeLater?: () => void;
   expiredAlert?: { taskIndex: number; taskName: string; nextTaskName?: string } | null;
   keyboardShortcutsEnabled?: boolean;
+  onAddSessionTask?: (title: string) => void;
+  onToggleSessionTask?: (taskId: string) => void;
+  onDeleteSessionTask?: (taskId: string) => void;
+  onUpdateSessionTask?: (taskId: string, title: string) => void;
+  onClearCompletedSessionTasks?: () => void;
 }
 
 export const RacePlayer: React.FC<RacePlayerProps> = ({
@@ -37,6 +43,11 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
   onSaveAndResumeLater,
   expiredAlert,
   keyboardShortcutsEnabled = true,
+  onAddSessionTask,
+  onToggleSessionTask,
+  onDeleteSessionTask,
+  onUpdateSessionTask,
+  onClearCompletedSessionTasks,
 }) => {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -180,6 +191,18 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
         onFinishRace={handlePromptFinishRace}
         onSaveAndResumeLater={onSaveAndResumeLater}
       />
+
+      {/* Session Task Manager to-do list (hidden in Focus mode) */}
+      {!isFocusMode && onAddSessionTask && (
+        <SessionTaskManager
+          sessionTasks={run.sessionTasks}
+          onAddTask={onAddSessionTask}
+          onToggleTask={onToggleSessionTask || (() => {})}
+          onDeleteTask={onDeleteSessionTask || (() => {})}
+          onUpdateTask={onUpdateSessionTask || (() => {})}
+          onClearCompleted={onClearCompletedSessionTasks || (() => {})}
+        />
+      )}
 
       {/* Timeline below sticky timer (hidden in Focus mode) */}
       {!isFocusMode && (

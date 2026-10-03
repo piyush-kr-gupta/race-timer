@@ -235,4 +235,103 @@ describe('Race Workflow and Snapshot Integrity', () => {
     expect(engine.getCurrentRuntimeState()).toBeNull();
     expect(engine.pauseAndGetState()).toBeNull();
   });
+
+  it('maintains independent Task Manager checklists when switching between races (e.g. Workout vs Cooking)', () => {
+    const workoutTemplate: RaceTemplate = {
+      id: 'race-workout',
+      name: 'Workout Session',
+      category: 'Fitness',
+      tags: [],
+      createdAt: '2026-09-24T00:00:00.000Z',
+      updatedAt: '2026-09-24T00:00:00.000Z',
+      tasks: [
+        { id: 'w1', name: 'Warm-up', durationSeconds: 300, order: 0, enabled: true },
+        { id: 'w2', name: 'Main Sets', durationSeconds: 900, order: 1, enabled: true },
+      ],
+    };
+
+    const cookingTemplate: RaceTemplate = {
+      id: 'race-cooking',
+      name: 'Cooking Session',
+      category: 'Kitchen',
+      tags: [],
+      createdAt: '2026-09-24T00:00:00.000Z',
+      updatedAt: '2026-09-24T00:00:00.000Z',
+      tasks: [
+        { id: 'c1', name: 'Prep', durationSeconds: 600, order: 0, enabled: true },
+        { id: 'c2', name: 'Simmer', durationSeconds: 1200, order: 1, enabled: true },
+      ],
+    };
+
+    // 1. Start Workout race and add checklist tasks
+    engine.initializeRun(workoutTemplate);
+    engine.start();
+
+    const pushups = engine.addSessionTask('20 Push-ups');
+    const squats = engine.addSessionTask('10 Squats');
+    const plank = engine.addSessionTask('30-second plank');
+
+    // Complete push-ups
+    engine.toggleSessionTask(pushups!.id);
+
+    // Save Workout session state and pause
+    const savedWorkoutState = engine.pauseAndGetState();
+    expect(savedWorkoutState).not.toBeNull();
+    expect(savedWorkoutState?.sessionTasks?.length).toBe(3);
+    expect(savedWorkoutState?.sessionTasks?.find((t) => t.id === pushups!.id)?.completed).toBe(true);
+    expect(savedWorkoutState?.sessionTasks?.find((t) => t.id === squats!.id)?.completed).toBe(false);
+
+    // 2. Switch to Cooking race: verify it starts with an empty task list
+    engine.clearCurrentRun();
+    engine.initializeRun(cookingTemplate);
+    engine.start();
+
+    expect(engine.getCurrentRun()?.sessionTasks).toEqual([]);
+
+    // Add Cooking checklist tasks
+    const chopOnions = engine.addSessionTask('Chop onions');
+    const boilWater = engine.addSessionTask('Boil water');
+    expect(boilWater?.completed).toBe(false);
+    engine.toggleSessionTask(chopOnions!.id);
+
+    expect(engine.getCurrentRun()?.sessionTasks?.length).toBe(2);
+
+    // Complete cooking race
+    engine.completeTask(); // Prep done
+    engine.completeTask(); // Simmer done -> finishes race
+
+    const finishedCookingRun = engine.getCurrentRun()!;
+    expect(finishedCookingRun.status).toBe('completed');
+    expect(finishedCookingRun.sessionTasks?.length).toBe(2);
+    expect(finishedCookingRun.sessionTasks?.[0].title).toBe('Chop onions');
+    expect(finishedCookingRun.sessionTasks?.[0].completed).toBe(true);
+
+    // 3. Switch back and resume Workout race
+    engine.clearCurrentRun();
+    engine.recover(savedWorkoutState!);
+
+    const resumedWorkoutRun = engine.getCurrentRun()!;
+    expect(resumedWorkoutRun.templateSnapshot.name).toBe('Workout Session');
+    expect(resumedWorkoutRun.sessionTasks?.length).toBe(3);
+
+    // Verify Workout tasks and states were preserved intact
+    const resumedPushups = resumedWorkoutRun.sessionTasks?.find((t) => t.id === pushups!.id);
+    const resumedSquats = resumedWorkoutRun.sessionTasks?.find((t) => t.id === squats!.id);
+    const resumedPlank = resumedWorkoutRun.sessionTasks?.find((t) => t.id === plank!.id);
+
+    expect(resumedPushups?.completed).toBe(true);
+    expect(resumedSquats?.completed).toBe(false);
+    expect(resumedPlank?.completed).toBe(false);
+
+    // Complete the squats in the resumed workout
+    engine.toggleSessionTask(squats!.id);
+    expect(engine.getCurrentRun()?.sessionTasks?.find((t) => t.id === squats!.id)?.completed).toBe(true);
+
+    // Finish Workout race and verify sessionTasks are preserved in the final run
+    engine.finishRace();
+    const finalWorkoutRun = engine.getCurrentRun()!;
+    expect(finalWorkoutRun.status).toBe('completed');
+    expect(finalWorkoutRun.sessionTasks?.length).toBe(3);
+    expect(finalWorkoutRun.sessionTasks?.filter((t) => t.completed).length).toBe(2);
+  });
 });

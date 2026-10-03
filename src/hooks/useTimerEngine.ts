@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TimerEngine, TimerTickData } from '../services/timer/timerEngine';
-import { RaceTemplate, RaceRun, AppSettings, ActiveRunRuntimeState } from '../types/race';
+import { RaceTemplate, RaceRun, AppSettings, ActiveRunRuntimeState, SessionTaskItem } from '../types/race';
 import { storage } from '../services/storage/indexedDb';
 
 export function useTimerEngine(settings: AppSettings) {
@@ -214,6 +214,49 @@ export function useTimerEngine(settings: AppSettings) {
     }
   }, [discardSavedRace, interruptedState]);
 
+  const addSessionTask = useCallback((title: string) => {
+    const engine = engineRef.current;
+    if (!engine) return null;
+    const task = engine.addSessionTask(title);
+    setCurrentRun(engine.getCurrentRun() ? { ...engine.getCurrentRun()! } : null);
+    return task;
+  }, []);
+
+  const toggleSessionTask = useCallback((taskId: string) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.toggleSessionTask(taskId);
+    setCurrentRun(engine.getCurrentRun() ? { ...engine.getCurrentRun()! } : null);
+  }, []);
+
+  const deleteSessionTask = useCallback((taskId: string) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.deleteSessionTask(taskId);
+    setCurrentRun(engine.getCurrentRun() ? { ...engine.getCurrentRun()! } : null);
+  }, []);
+
+  const updateSessionTask = useCallback((taskId: string, title: string) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.updateSessionTask(taskId, title);
+    setCurrentRun(engine.getCurrentRun() ? { ...engine.getCurrentRun()! } : null);
+  }, []);
+
+  const clearCompletedSessionTasks = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.clearCompletedSessionTasks();
+    setCurrentRun(engine.getCurrentRun() ? { ...engine.getCurrentRun()! } : null);
+  }, []);
+
+  const reorderSessionTasks = useCallback((tasks: SessionTaskItem[]) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.reorderSessionTasks(tasks);
+    setCurrentRun(engine.getCurrentRun() ? { ...engine.getCurrentRun()! } : null);
+  }, []);
+
   return {
     engine: engineRef.current,
     tickData,
@@ -235,5 +278,11 @@ export function useTimerEngine(settings: AppSettings) {
     discardSavedRace,
     resumeInterrupted,
     discardInterrupted,
+    addSessionTask,
+    toggleSessionTask,
+    deleteSessionTask,
+    updateSessionTask,
+    clearCompletedSessionTasks,
+    reorderSessionTasks,
   };
 }

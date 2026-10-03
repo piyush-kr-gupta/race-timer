@@ -75,6 +75,7 @@ export function runsToCsv(runs: RaceRun[]): string {
       'Tasks Completed',
       'Tasks Total',
       'Task Runs JSON',
+      'Session Tasks JSON',
     ],
   ];
 
@@ -95,6 +96,7 @@ export function runsToCsv(runs: RaceRun[]): string {
       String(completedTasks),
       String(r.taskRuns.length),
       JSON.stringify(r.taskRuns),
+      JSON.stringify(r.sessionTasks || []),
     ]);
   }
 

@@ -62,6 +62,14 @@ export interface TaskRun {
   events: TaskRunEvent[];
 }
 
+export interface SessionTaskItem {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: string; // ISO
+  completedAt?: string; // ISO
+}
+
 export interface RaceRun {
   id: string;
   templateId: string;
@@ -74,6 +82,7 @@ export interface RaceRun {
   totalOvertimeSeconds: number;
   totalPausedSeconds: number;
   taskRuns: TaskRun[];
+  sessionTasks?: SessionTaskItem[];
 }
 
 export interface ActiveRunRuntimeState {
@@ -94,6 +103,7 @@ export interface ActiveRunRuntimeState {
   lastTickTimestamp: number;
   taskRuns: TaskRun[];
   templateSnapshot: RaceTemplate;
+  sessionTasks?: SessionTaskItem[];
   savedAt?: string; // ISO string when explicitly saved
   isExplicitlySaved?: boolean; // Flag to distinguish intentional saves from background auto-saves
 }

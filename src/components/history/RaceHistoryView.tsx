@@ -10,6 +10,7 @@ import {
   ChevronRight,
   TrendingDown,
   TrendingUp,
+  CheckSquare,
 } from 'lucide-react';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
@@ -100,6 +101,15 @@ export const RaceHistoryView: React.FC<RaceHistoryViewProps> = ({
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       {completedCount} / {run.taskRuns.length} tasks
                     </span>
+                    {run.sessionTasks && run.sessionTasks.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-slate-300">
+                          <CheckSquare className="w-3.5 h-3.5 text-indigo-400" />
+                          {run.sessionTasks.filter((t) => t.completed).length}/{run.sessionTasks.length} checklist
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
