@@ -37,6 +37,7 @@ export interface TimerTickData {
   isWarning: boolean;
   isCountdownWarning: boolean;
   countdownSecondsRemaining: number;
+  paceDeltaSeconds: number; // Positive = leading by X seconds, negative = trailing by X seconds
 }
 
 export type TimerListener = (data: TimerTickData) => void;
@@ -573,6 +574,21 @@ export class TimerEngine {
       taskRemaining <= countdownThreshold &&
       this.timerState !== 'PAUSED';
 
+    // Calculate cumulative pace variance / delta across completed tasks and current task overtime
+    let paceDelta = 0;
+    if (this.run) {
+      for (let i = 0; i < this.run.taskRuns.length; i++) {
+        const tr = this.run.taskRuns[i];
+        if (!tr.taskSnapshot.enabled) continue;
+
+        if (tr.status === 'completed' || tr.status === 'expired' || tr.status === 'skipped') {
+          paceDelta += (tr.allocatedSeconds - tr.actualSeconds);
+        } else if (i === this.currentTaskIndex) {
+          paceDelta -= taskOvertime;
+        }
+      }
+    }
+
     return {
       timerState: this.timerState,
       currentTaskIndex: this.currentTaskIndex,
@@ -596,6 +612,7 @@ export class TimerEngine {
       isWarning: this.timerState === 'WARNING' || isCountdownWarning,
       isCountdownWarning,
       countdownSecondsRemaining: isCountdownWarning ? taskRemaining : 0,
+      paceDeltaSeconds: paceDelta,
     };
   }
 

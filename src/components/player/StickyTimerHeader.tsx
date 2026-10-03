@@ -167,6 +167,20 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           </span>
           <span>•</span>
           <span>{tickData.raceProgressPercent}% total race completed</span>
+          {tickData.timerState !== 'IDLE' && (
+            <>
+              <span>•</span>
+              <span
+                className={`tabular-nums font-semibold ${
+                  tickData.paceDeltaSeconds >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                }`}
+              >
+                {tickData.paceDeltaSeconds >= 0
+                  ? `leading by ${formatTime(tickData.paceDeltaSeconds)}`
+                  : `trailing by ${formatTime(Math.abs(tickData.paceDeltaSeconds))}`}
+              </span>
+            </>
+          )}
           {tickData.estimatedFinishTime && (
             <>
               <span>•</span>

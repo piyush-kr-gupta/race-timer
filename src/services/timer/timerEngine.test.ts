@@ -369,4 +369,72 @@ describe('TimerEngine', () => {
     expect(engine.getTickData().isCountdownWarning).toBe(false);
     expect(playCountdownSpy).not.toHaveBeenCalled();
   });
+
+  it('accurately tracks paceDeltaSeconds (leading by / trailing by) across task completions and overtime', () => {
+    const paceTemplate: RaceTemplate = {
+      id: 'pace-test',
+      name: 'Pace Race',
+      category: 'Testing',
+      tags: [],
+      createdAt: '2026-09-24T00:00:00.000Z',
+      updatedAt: '2026-09-24T00:00:00.000Z',
+      tasks: [
+        { id: 't1', name: 'Task 1', durationSeconds: 60, order: 0, enabled: true },
+        { id: 't2', name: 'Task 2', durationSeconds: 60, order: 1, enabled: true },
+        { id: 't3', name: 'Task 3', durationSeconds: 60, order: 2, enabled: true },
+      ],
+    };
+
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      autoAdvance: false,
+      allowOvertime: true,
+    });
+
+    engine.initializeRun(paceTemplate);
+    engine.start();
+
+    // In Task 1 at 20s (budget 60s, overtime 0)
+    vi.advanceTimersByTime(20000);
+    expect(engine.getTickData().paceDeltaSeconds).toBe(0); // On pace
+
+    // Complete Task 1 at 40s (saved 20s)
+    vi.advanceTimersByTime(20000);
+    engine.completeTask();
+
+    // Now in Task 2: leading by 20 seconds!
+    expect(engine.getTickData().currentTaskIndex).toBe(1);
+    expect(engine.getTickData().paceDeltaSeconds).toBe(20);
+
+    // Run Task 2 for 30 seconds (still within budget, overtime 0)
+    vi.advanceTimersByTime(30000);
+    expect(engine.getTickData().paceDeltaSeconds).toBe(20); // Still leading by 20s
+
+    // Run Task 2 into overtime: 70 seconds total elapsed (10s overtime)
+    vi.advanceTimersByTime(40000);
+    expect(engine.getTickData().taskOvertimeSeconds).toBe(10);
+    // Lead shrinks from 20s to 10s
+    expect(engine.getTickData().paceDeltaSeconds).toBe(10);
+
+    // Run Task 2 further: 90 seconds total elapsed (30s overtime)
+    vi.advanceTimersByTime(20000);
+    expect(engine.getTickData().taskOvertimeSeconds).toBe(30);
+    // Now trailing by 10s (-10)
+    expect(engine.getTickData().paceDeltaSeconds).toBe(-10);
+
+    // Complete Task 2 with 30s overtime
+    engine.completeTask();
+
+    // Now in Task 3: trailing by 10s (-10)
+    expect(engine.getTickData().currentTaskIndex).toBe(2);
+    expect(engine.getTickData().paceDeltaSeconds).toBe(-10);
+
+    // Complete Task 3 after 25s (saving 35s out of 60s)
+    vi.advanceTimersByTime(25000);
+    engine.completeTask();
+
+    // Race finishes: net variance = +20 (Task 1) - 30 (Task 2) + 35 (Task 3) = +25s
+    expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+    expect(engine.getTickData().paceDeltaSeconds).toBe(25);
+  });
 });
