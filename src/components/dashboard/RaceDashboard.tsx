@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from '../../types/race';
+import { TimerTickData } from '../../services/timer/timerEngine';
 import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { RaceCard } from './RaceCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -13,6 +14,7 @@ interface RaceDashboardProps {
   isRaceActive: boolean;
   activeRaceName?: string;
   activeRunId?: string;
+  activeTickData?: TimerTickData | null;
   onResumeActiveRace?: () => void;
   onResumeSavedRace?: (state: ActiveRunRuntimeState) => void;
   onDiscardSavedRace?: (runId: string) => void;
@@ -31,6 +33,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   isRaceActive,
   activeRaceName,
   activeRunId,
+  activeTickData,
   onResumeActiveRace,
   onResumeSavedRace,
   onDiscardSavedRace,
@@ -159,15 +162,31 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
               const totalTasks = state.templateSnapshot.tasks.filter((t) => t.enabled).length || state.templateSnapshot.tasks.length;
               const pct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
-              // Calculate current task remaining time accurately
-              const now = Date.now();
-              const currentPaused = state.taskPausedAt !== null ? now - state.taskPausedAt : 0;
-              const totalPausedMs = state.taskAccumulatedPausedMs + currentPaused;
-              const taskElapsed = Math.floor(Math.max(0, now - state.taskStartedAt - totalPausedMs) / 1000);
-              const currentAllocated = currentTask?.durationSeconds || 0;
-              const taskRemaining = Math.max(0, currentAllocated - taskElapsed);
-
               const isCurrentActive = isRaceActive && activeRunId === state.runId;
+
+              // Calculate total race remaining time accurately
+              let totalRemaining = 0;
+              let totalOvertime = 0;
+
+              if (isCurrentActive && activeTickData) {
+                totalRemaining = activeTickData.raceRemainingSeconds;
+                totalOvertime = activeTickData.raceOvertimeSeconds;
+              } else {
+                const enabledTasks = state.templateSnapshot.tasks.filter((t) => t.enabled);
+                const tasksForTotal = enabledTasks.length > 0 ? enabledTasks : state.templateSnapshot.tasks;
+                const totalAllocated = tasksForTotal.reduce((sum, t) => sum + t.durationSeconds, 0);
+
+                const now = Date.now();
+                const raceCurrentPaused = state.racePausedAt !== null ? now - state.racePausedAt : 0;
+                const totalRacePausedMs = state.raceAccumulatedPausedMs + raceCurrentPaused;
+                const rawRaceElapsedMs = state.raceStartedAt > 0
+                  ? Math.max(0, now - state.raceStartedAt - totalRacePausedMs)
+                  : 0;
+                const raceElapsed = Math.floor(rawRaceElapsedMs / 1000);
+
+                totalRemaining = Math.max(0, totalAllocated - raceElapsed);
+                totalOvertime = Math.max(0, raceElapsed - totalAllocated);
+              }
 
               return (
                 <div
@@ -196,7 +215,9 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
                         Task {state.currentTaskIndex + 1}/{totalTasks}: {currentTask?.name || 'Task'}
                       </span>
                       <span className="font-mono text-slate-300 shrink-0 ml-2">
-                        {formatTime(taskRemaining)} left
+                        {totalOvertime > 0
+                          ? `+${formatTime(totalOvertime)} overtime`
+                          : `${formatTime(totalRemaining)} remaining`}
                       </span>
                     </div>
 

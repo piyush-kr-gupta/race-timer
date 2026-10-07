@@ -329,6 +329,7 @@ export function App() {
                 isRaceActive={isRaceActive}
                 activeRaceName={currentRun?.templateSnapshot.name}
                 activeRunId={currentRun?.id}
+                activeTickData={tickData}
                 onResumeActiveRace={() => setActiveView('player')}
                 onResumeSavedRace={handleResumeSavedRace}
                 onDiscardSavedRace={handleDiscardSavedRace}
