@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RaceTemplate, RaceRun } from '../types/race';
 import { storage } from '../services/storage/indexedDb';
+import { getLocalDateKey } from '../utils/dateUtils';
 
 export function useRaces() {
   const [templates, setTemplates] = useState<RaceTemplate[]>([]);
@@ -54,6 +55,27 @@ export function useRaces() {
     }
   };
 
+  const toggleDoneToday = async (id: string, isCurrentlyDone: boolean) => {
+    const t = templates.find((item) => item.id === id);
+    if (t) {
+      const todayKey = getLocalDateKey();
+      if (isCurrentlyDone) {
+        await storage.saveTemplate({
+          ...t,
+          manualActiveDate: todayKey,
+          manualDoneDate: undefined,
+        });
+      } else {
+        await storage.saveTemplate({
+          ...t,
+          manualDoneDate: todayKey,
+          manualActiveDate: undefined,
+        });
+      }
+      await refresh();
+    }
+  };
+
   const deleteRun = async (id: string) => {
     await storage.deleteRun(id);
     await refresh();
@@ -79,6 +101,7 @@ export function useRaces() {
     deleteTemplate,
     duplicateTemplate,
     toggleArchive,
+    toggleDoneToday,
     deleteRun,
     clearAllRuns,
     resetSeedData,

@@ -7,24 +7,28 @@ interface RaceCardProps {
   template: RaceTemplate;
   lastRun?: RaceRun;
   savedRun?: ActiveRunRuntimeState;
+  isDoneToday?: boolean;
   onStart: (template: RaceTemplate) => void;
   onResumeSaved?: (saved: ActiveRunRuntimeState) => void;
   onEdit: (template: RaceTemplate) => void;
   onDuplicate: (templateId: string) => void;
   onToggleArchive: (templateId: string) => void;
   onDelete: (templateId: string, name: string) => void;
+  onToggleDoneToday?: (templateId: string) => void;
 }
 
 export const RaceCard: React.FC<RaceCardProps> = ({
   template,
   lastRun,
   savedRun,
+  isDoneToday = false,
   onStart,
   onResumeSaved,
   onEdit,
   onDuplicate,
   onToggleArchive,
   onDelete,
+  onToggleDoneToday,
 }) => {
   const enabledTasks = template.tasks.filter((t) => t.enabled);
   const totalSeconds = enabledTasks.reduce((sum, t) => sum + t.durationSeconds, 0);
@@ -55,6 +59,12 @@ export const RaceCard: React.FC<RaceCardProps> = ({
             {template.isArchived && (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-950 text-amber-400 border border-amber-800/60">
                 Archived
+              </span>
+            )}
+            {isDoneToday && (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800/60 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                Done for Today
               </span>
             )}
           </div>
@@ -116,6 +126,15 @@ export const RaceCard: React.FC<RaceCardProps> = ({
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
+        ) : isDoneToday ? (
+          <button
+            onClick={() => onStart(template)}
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-3.5 bg-slate-800 hover:bg-slate-700 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-semibold shadow-md transition cursor-pointer min-h-[40px]"
+            title="Run race again today"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Run Again</span>
+          </button>
         ) : (
           <button
             onClick={() => onStart(template)}
@@ -127,6 +146,20 @@ export const RaceCard: React.FC<RaceCardProps> = ({
         )}
 
         <div className="flex items-center gap-1">
+          {onToggleDoneToday && !template.isArchived && (
+            <button
+              onClick={() => onToggleDoneToday(template.id)}
+              className={`p-2 rounded-lg transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                isDoneToday
+                  ? 'text-emerald-400 hover:text-amber-400 hover:bg-slate-800'
+                  : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-800'
+              }`}
+              title={isDoneToday ? 'Move back to Active' : 'Mark as Done for Today'}
+              aria-label={isDoneToday ? 'Move back to Active' : 'Mark as Done for Today'}
+            >
+              <CheckCircle className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={() => onEdit(template)}
             className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"

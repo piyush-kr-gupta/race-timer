@@ -5,7 +5,9 @@ import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { RaceCard } from './RaceCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { formatTime } from '../../utils/duration';
-import { Plus, Search, Play, Sparkles, BookmarkCheck, Trash2 } from 'lucide-react';
+import { isTemplateDoneToday } from '../../utils/dateUtils';
+import { useCurrentDay } from '../../hooks/useCurrentDay';
+import { Plus, Search, Play, Sparkles, BookmarkCheck, Trash2, CheckCircle2, Trophy } from 'lucide-react';
 
 interface RaceDashboardProps {
   templates: RaceTemplate[];
@@ -24,6 +26,7 @@ interface RaceDashboardProps {
   onDuplicateRace: (templateId: string) => void;
   onToggleArchive: (templateId: string) => void;
   onDeleteRace: (templateId: string, name: string) => void;
+  onToggleDoneToday?: (templateId: string, isCurrentlyDone: boolean) => void;
 }
 
 export const RaceDashboard: React.FC<RaceDashboardProps> = ({
@@ -43,12 +46,14 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   onDuplicateRace,
   onToggleArchive,
   onDeleteRace,
+  onToggleDoneToday,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [filterMode, setFilterMode] = useState<'all' | 'active' | 'archived'>('active');
+  const [filterMode, setFilterMode] = useState<'all' | 'active' | 'done-today' | 'archived'>('active');
   const [sortBy, setSortBy] = useState<'updated' | 'name' | 'duration-desc' | 'duration-asc'>('updated');
 
+  const todayKey = useCurrentDay();
   const [discardTarget, setDiscardTarget] = useState<{ runId: string; name: string } | null>(null);
 
   // Filter out any completed races from saved runs
@@ -87,13 +92,45 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
     return map;
   }, [runs]);
 
+  // Map Done for Today status for each template
+  const isDoneTodayMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const t of templates) {
+      map.set(t.id, isTemplateDoneToday(t, runs, todayKey));
+    }
+    return map;
+  }, [templates, runs, todayKey]);
+
+  // Tab counts
+  const activeCount = useMemo(() => {
+    return templates.filter((t) => !t.isArchived && !isDoneTodayMap.get(t.id)).length;
+  }, [templates, isDoneTodayMap]);
+
+  const doneTodayCount = useMemo(() => {
+    return templates.filter((t) => !t.isArchived && isDoneTodayMap.get(t.id)).length;
+  }, [templates, isDoneTodayMap]);
+
+  const archivedCount = useMemo(() => {
+    return templates.filter((t) => t.isArchived).length;
+  }, [templates]);
+
+  const allCount = templates.length;
+
   // Filtered & sorted templates
   const filteredTemplates = useMemo(() => {
     return templates
       .filter((t) => {
-        // Archive filter
-        if (filterMode === 'active' && t.isArchived) return false;
-        if (filterMode === 'archived' && !t.isArchived) return false;
+        const isDoneToday = Boolean(isDoneTodayMap.get(t.id));
+
+        // Tab mode filter
+        if (filterMode === 'active') {
+          if (t.isArchived || isDoneToday) return false;
+        } else if (filterMode === 'done-today') {
+          if (t.isArchived || !isDoneToday) return false;
+        } else if (filterMode === 'archived') {
+          if (!t.isArchived) return false;
+        }
+        // 'all' includes all templates
 
         // Category filter
         if (selectedCategory !== 'all' && t.category !== selectedCategory) return false;
@@ -127,7 +164,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
         }
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
-  }, [templates, searchQuery, selectedCategory, filterMode, sortBy]);
+  }, [templates, searchQuery, selectedCategory, filterMode, sortBy, isDoneTodayMap]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -342,42 +379,70 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
         </div>
       </div>
 
-      {/* Filter Tabs: Active vs Archived vs All */}
+      {/* Filter Tabs: Active vs Done for Today vs Archived vs All */}
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-        <div className="flex items-center gap-1.5 text-xs font-medium">
+        <div className="flex items-center gap-1.5 text-xs font-medium flex-wrap">
           <button
             onClick={() => setFilterMode('active')}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               filterMode === 'active'
                 ? 'bg-slate-800 text-orange-400 font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Active ({templates.filter((t) => !t.isArchived).length})
+            <span>Active</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[11px] bg-slate-900/80 text-slate-300 border border-slate-700/50">
+              {activeCount}
+            </span>
+          </button>
+          <button
+            onClick={() => setFilterMode('done-today')}
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+              filterMode === 'done-today'
+                ? 'bg-slate-800 text-emerald-400 font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span>Done for Today</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[11px] border ${
+                doneTodayCount > 0
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/50'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700/50'
+              }`}
+            >
+              {doneTodayCount}
+            </span>
           </button>
           <button
             onClick={() => setFilterMode('archived')}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               filterMode === 'archived'
                 ? 'bg-slate-800 text-orange-400 font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Archived ({templates.filter((t) => t.isArchived).length})
+            <span>Archived</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[11px] bg-slate-900/80 text-slate-300 border border-slate-700/50">
+              {archivedCount}
+            </span>
           </button>
           <button
             onClick={() => setFilterMode('all')}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
               filterMode === 'all'
                 ? 'bg-slate-800 text-orange-400 font-semibold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            All ({templates.length})
+            <span>All</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[11px] bg-slate-900/80 text-slate-300 border border-slate-700/50">
+              {allCount}
+            </span>
           </button>
         </div>
 
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-slate-400 shrink-0">
           Showing {filteredTemplates.length} {filteredTemplates.length === 1 ? 'race' : 'races'}
         </span>
       </div>
@@ -389,6 +454,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
             <RaceCard
               key={template.id}
               template={template}
+              isDoneToday={Boolean(isDoneTodayMap.get(template.id))}
               lastRun={latestRunsByTemplate.get(template.id)}
               savedRun={savedRacesByTemplateId.get(template.id)}
               onStart={onStartRace}
@@ -397,6 +463,11 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
               onDuplicate={onDuplicateRace}
               onToggleArchive={onToggleArchive}
               onDelete={onDeleteRace}
+              onToggleDoneToday={
+                onToggleDoneToday
+                  ? () => onToggleDoneToday(template.id, Boolean(isDoneTodayMap.get(template.id)))
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -404,23 +475,55 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
         /* Empty State */
         <div className="p-12 text-center border border-dashed border-slate-800 rounded-3xl bg-slate-900/40 space-y-4">
           <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center mx-auto">
-            <Sparkles className="w-6 h-6" />
+            {filterMode === 'done-today' ? (
+              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+            ) : filterMode === 'active' && doneTodayCount > 0 ? (
+              <Trophy className="w-6 h-6 text-amber-400" />
+            ) : (
+              <Sparkles className="w-6 h-6" />
+            )}
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-200">No races found</h3>
+            <h3 className="text-base font-bold text-slate-200">
+              {searchQuery
+                ? 'No races found'
+                : filterMode === 'done-today'
+                ? 'No races completed today yet'
+                : filterMode === 'active' && doneTodayCount > 0
+                ? 'All races completed for today! 🎉'
+                : filterMode === 'archived'
+                ? 'No archived races'
+                : 'No races found'}
+            </h3>
             <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
               {searchQuery
                 ? 'No races match your search filters. Try a different query.'
+                : filterMode === 'done-today'
+                ? 'Complete a race from the Active tab and it will move here until tomorrow!'
+                : filterMode === 'active' && doneTodayCount > 0
+                ? 'Great work! You have completed all your active races today. They will automatically move back to Active when tomorrow arrives.'
+                : filterMode === 'archived'
+                ? 'Archived races will appear here. You can archive races you are not actively using.'
                 : 'Create your first race template and start competing against your own clock.'}
             </p>
           </div>
-          <button
-            onClick={onCreateRace}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-semibold shadow-md transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            Create Race
-          </button>
+          {filterMode === 'active' && doneTodayCount > 0 ? (
+            <button
+              onClick={() => setFilterMode('done-today')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md transition cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              View Done for Today ({doneTodayCount})
+            </button>
+          ) : (
+            <button
+              onClick={onCreateRace}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-semibold shadow-md transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              Create Race
+            </button>
+          )}
         </div>
       )}
 

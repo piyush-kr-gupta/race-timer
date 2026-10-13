@@ -150,3 +150,28 @@ export function sanitizeDuration(seconds: number): number {
   if (isNaN(seconds) || seconds < 0) return 0;
   return Math.floor(seconds);
 }
+
+/**
+ * Formats seconds into MM:SS format specifically for browser tab title countdown,
+ * with optional race name suffix.
+ * Examples:
+ * - (300, false, "Workout") -> "05:00 - Workout"
+ * - (45, false) -> "00:45"
+ * - (75, true, "Deep Work") -> "+01:15 - Deep Work"
+ * - (0, false, "Cooking") -> "00:00 - Cooking"
+ */
+export function formatTabTitleTime(
+  totalSeconds: number,
+  isOvertime: boolean = false,
+  raceName?: string
+): string {
+  const absSeconds = Math.abs(Math.floor(totalSeconds));
+  const minutes = Math.floor(absSeconds / 60);
+  const seconds = absSeconds % 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const formatted = `${pad(minutes)}:${pad(seconds)}`;
+  const timeStr = isOvertime && absSeconds > 0 ? `+${formatted}` : formatted;
+  const trimmedName = raceName?.trim();
+  return trimmedName ? `${timeStr} - ${trimmedName}` : timeStr;
+}
+

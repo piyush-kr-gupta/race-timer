@@ -177,6 +177,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500 cursor-pointer"
             />
           </div>
+
+          {/* Display Timer in Browser Tab Title */}
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+            <div>
+              <span className="text-sm font-semibold text-slate-200 block">Display Timer in Browser Tab Title</span>
+              <span className="text-xs text-slate-400">Update Chrome tab title with remaining time and race name (e.g. 05:00 - Workout) during active races</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.tabTitleTimerEnabled}
+              onChange={(e) => onUpdateSettings({ tabTitleTimerEnabled: e.target.checked })}
+              className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500 cursor-pointer"
+            />
+          </div>
         </div>
       </div>
 

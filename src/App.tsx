@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSettings } from './hooks/useSettings';
 import { useRaces } from './hooks/useRaces';
 import { useTimerEngine } from './hooks/useTimerEngine';
+import { useDocumentTitleTimer } from './hooks/useDocumentTitleTimer';
 import { Header } from './components/common/Header';
 import { ToastContainer, ToastMessage } from './components/common/Toast';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
@@ -26,6 +27,7 @@ export function App() {
     deleteTemplate,
     duplicateTemplate,
     toggleArchive,
+    toggleDoneToday,
     deleteRun,
     clearAllRuns,
     resetSeedData,
@@ -58,6 +60,13 @@ export function App() {
     updateSessionTask,
     clearCompletedSessionTasks,
   } = useTimerEngine(settings);
+
+  // Dynamic Chrome Tab Title Display in MM:SS Format with Race Name Suffix
+  useDocumentTitleTimer({
+    tickData,
+    enabled: settings.tabTitleTimerEnabled,
+    raceName: currentRun?.templateSnapshot?.name,
+  });
 
   // Navigation State
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'history' | 'settings'>('dashboard');
@@ -110,8 +119,17 @@ export function App() {
     if (tickData?.timerState === 'RACE_COMPLETED') {
       const run = currentRun;
       if (run) {
+        // Clear manualActiveDate on the template if it existed so today's completion applies
+        const t = templates.find((item) => item.id === run.templateId);
+        if (t && t.manualActiveDate) {
+          storage.saveTemplate({
+            ...t,
+            manualActiveDate: undefined,
+          }).catch(console.error);
+        }
         storage.deleteActiveRuntimeState(run.id).then(() => {
           refreshSavedRaces();
+          refresh();
         }).catch(console.error);
       }
       if (activeView === 'player' && currentRun) {
@@ -119,7 +137,7 @@ export function App() {
         setActiveView('results');
       }
     }
-  }, [tickData?.timerState, activeView, currentRun, refreshSavedRaces]);
+  }, [tickData?.timerState, activeView, currentRun, refreshSavedRaces, refresh, templates]);
 
   const isRaceActive = Boolean(
     tickData &&
@@ -339,6 +357,7 @@ export function App() {
                 onDuplicateRace={handleDuplicateRace}
                 onToggleArchive={handleToggleArchiveRace}
                 onDeleteRace={(id, name) => setDeleteTarget({ id, name })}
+                onToggleDoneToday={toggleDoneToday}
               />
             )}
 

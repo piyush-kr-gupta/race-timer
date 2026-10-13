@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   compactMode: false,
   keyboardShortcutsEnabled: true,
   wakeLockEnabled: true,
+  tabTitleTimerEnabled: true,
   skipConfirmations: {},
   lastBackupAt: null,
 };

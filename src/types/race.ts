@@ -36,6 +36,8 @@ export interface RaceTemplate {
   updatedAt: string; // ISO
   isArchived?: boolean;
   isSample?: boolean;
+  manualDoneDate?: string; // Local date 'YYYY-MM-DD' when explicitly marked as done for today
+  manualActiveDate?: string; // Local date 'YYYY-MM-DD' when explicitly restored to active for today
   settings?: {
     autoAdvance?: boolean;
     allowOvertime?: boolean;
@@ -127,6 +129,7 @@ export interface AppSettings {
   compactMode: boolean;
   keyboardShortcutsEnabled: boolean;
   wakeLockEnabled: boolean;
+  tabTitleTimerEnabled: boolean; // Display remaining timer in Chrome tab title (MM:SS)
   skipConfirmations: Record<string, boolean>; // e.g. { deleteRace: false, deleteTask: false }
   lastBackupAt: string | null;
 }

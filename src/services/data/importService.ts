@@ -67,6 +67,8 @@ export class ImportService {
             updatedAt: item.updatedAt || new Date().toISOString(),
             isArchived: Boolean(item.isArchived),
             isSample: false, // Imported user templates are not sample
+            manualDoneDate: item.manualDoneDate ? String(item.manualDoneDate) : undefined,
+            manualActiveDate: item.manualActiveDate ? String(item.manualActiveDate) : undefined,
           });
         } else {
           warnings.push(`Skipped invalid template record at index ${i}.`);

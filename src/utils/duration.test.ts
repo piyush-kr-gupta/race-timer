@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDurationToSeconds, formatTime, formatDurationHuman } from './duration';
+import { parseDurationToSeconds, formatTime, formatDurationHuman, formatTabTitleTime } from './duration';
 
 describe('parseDurationToSeconds', () => {
   it('parses colon format mm:ss correctly', () => {
@@ -72,5 +72,42 @@ describe('formatDurationHuman', () => {
     expect(formatDurationHuman(5400)).toBe('1h 30m');
     expect(formatDurationHuman(45)).toBe('45s');
     expect(formatDurationHuman(0)).toBe('0m');
+  });
+});
+
+describe('formatTabTitleTime', () => {
+  it('formats standard MM:SS for Chrome tab countdown', () => {
+    expect(formatTabTitleTime(300)).toBe('05:00');
+    expect(formatTabTitleTime(299)).toBe('04:59');
+    expect(formatTabTitleTime(45)).toBe('00:45');
+    expect(formatTabTitleTime(5)).toBe('00:05');
+    expect(formatTabTitleTime(0)).toBe('00:00');
+  });
+
+  it('formats durations over an hour as MM:SS', () => {
+    expect(formatTabTitleTime(3600)).toBe('60:00');
+    expect(formatTabTitleTime(3900)).toBe('65:00');
+  });
+
+  it('formats overtime with a leading plus sign', () => {
+    expect(formatTabTitleTime(15, true)).toBe('+00:15');
+    expect(formatTabTitleTime(125, true)).toBe('+02:05');
+  });
+
+  it('appends race name as suffix when provided', () => {
+    expect(formatTabTitleTime(300, false, 'Workout')).toBe('05:00 - Workout');
+    expect(formatTabTitleTime(45, false, 'Cooking')).toBe('00:45 - Cooking');
+    expect(formatTabTitleTime(125, true, 'Workout')).toBe('+02:05 - Workout');
+    expect(formatTabTitleTime(0, false, 'Sprint Review')).toBe('00:00 - Sprint Review');
+  });
+
+  it('handles empty or whitespace-only race name by omitting suffix', () => {
+    expect(formatTabTitleTime(300, false, '')).toBe('05:00');
+    expect(formatTabTitleTime(300, false, '   ')).toBe('05:00');
+    expect(formatTabTitleTime(300, false, undefined)).toBe('05:00');
+  });
+
+  it('trims whitespace around race name', () => {
+    expect(formatTabTitleTime(300, false, '  Workout  ')).toBe('05:00 - Workout');
   });
 });

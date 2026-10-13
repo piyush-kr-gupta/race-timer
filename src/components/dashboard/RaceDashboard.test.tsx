@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { RaceDashboard } from './RaceDashboard';
-import { RaceTemplate, ActiveRunRuntimeState } from '../../types/race';
+import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from '../../types/race';
 import { TimerTickData } from '../../services/timer/timerEngine';
+import { getLocalDateKey } from '../../utils/dateUtils';
 
 const mockTemplate: RaceTemplate = {
   id: 'template-interview',
@@ -150,5 +151,216 @@ describe('RaceDashboard - In-Progress & Saved Races Total Time Remaining', () =>
 
     // Shows overtime: +02:05 overtime
     expect(screen.getByText('+02:05 overtime')).toBeInTheDocument();
+  });
+
+  describe('"Done for Today" Section & Daily Transition', () => {
+    const workoutTemplate: RaceTemplate = {
+      id: 'template-workout',
+      name: 'HIIT Morning Routine',
+      category: 'Fitness',
+      tags: ['HIIT'],
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [
+        { id: 'wt-1', name: 'Warmup', durationSeconds: 300, order: 0, enabled: true },
+      ],
+      isArchived: false,
+    };
+
+    const studyTemplate: RaceTemplate = {
+      id: 'template-study',
+      name: 'Algorithm Deep Dive',
+      category: 'Study',
+      tags: [],
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [
+        { id: 'st-1', name: 'Problem Solving', durationSeconds: 600, order: 0, enabled: true },
+      ],
+      isArchived: false,
+    };
+
+    const archivedTemplate: RaceTemplate = {
+      id: 'template-archived',
+      name: 'Old Routine',
+      category: 'Misc',
+      tags: [],
+      tasks: [],
+      isArchived: true,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+    };
+
+    it('renders all 4 tabs (Active, Done for Today, Archived, All) with correct initial counts', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[workoutTemplate, studyTemplate, archivedTemplate]}
+          runs={[]}
+        />
+      );
+
+      // Tab buttons exist
+      expect(screen.getByRole('button', { name: /^Active/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Done for Today/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Archived/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^All/i })).toBeInTheDocument();
+
+      // Active: 2 unarchived races (none done today)
+      // Done for Today: 0
+      // Archived: 1
+      // All: 3
+      const activeTab = screen.getByRole('button', { name: /^Active/i });
+      expect(activeTab).toHaveTextContent('2');
+
+      const doneTodayTab = screen.getByRole('button', { name: /^Done for Today/i });
+      expect(doneTodayTab).toHaveTextContent('0');
+
+      const archivedTab = screen.getByRole('button', { name: /^Archived/i });
+      expect(archivedTab).toHaveTextContent('1');
+
+      const allTab = screen.getByRole('button', { name: /^All/i });
+      expect(allTab).toHaveTextContent('3');
+
+      // Both active templates are visible
+      expect(screen.getByText('HIIT Morning Routine')).toBeInTheDocument();
+      expect(screen.getByText('Algorithm Deep Dive')).toBeInTheDocument();
+      // Archived template is not visible in Active tab
+      expect(screen.queryByText('Old Routine')).not.toBeInTheDocument();
+    });
+
+    it('moves a race from Active to Done for Today once completed today', () => {
+      const todayKey = getLocalDateKey();
+      const completedRunToday: RaceRun = {
+        id: 'run-workout-today',
+        templateId: workoutTemplate.id,
+        templateSnapshot: workoutTemplate,
+        startedAt: `${todayKey}T08:00:00.000Z`,
+        completedAt: `${todayKey}T08:15:00.000Z`,
+        status: 'completed',
+        totalAllocatedSeconds: 300,
+        totalActualSeconds: 290,
+        totalOvertimeSeconds: 0,
+        totalPausedSeconds: 0,
+        taskRuns: [],
+      };
+
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[workoutTemplate, studyTemplate]}
+          runs={[completedRunToday]}
+        />
+      );
+
+      // Active tab count should now be 1 (only studyTemplate)
+      const activeTab = screen.getByRole('button', { name: /^Active/i });
+      expect(activeTab).toHaveTextContent('1');
+
+      // Done for Today tab count should be 1 (workoutTemplate)
+      const doneTodayTab = screen.getByRole('button', { name: /^Done for Today/i });
+      expect(doneTodayTab).toHaveTextContent('1');
+
+      // Under Active tab, workoutTemplate is MOVED AWAY and not displayed
+      expect(screen.queryByText('HIIT Morning Routine')).not.toBeInTheDocument();
+      expect(screen.getByText('Algorithm Deep Dive')).toBeInTheDocument();
+
+      // Click "Done for Today" tab
+      fireEvent.click(doneTodayTab);
+
+      // Now workoutTemplate is displayed with "Done for Today" badge and "Run Again" button
+      expect(screen.getByText('HIIT Morning Routine')).toBeInTheDocument();
+      expect(screen.getAllByText('Done for Today').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('Run Again')).toBeInTheDocument();
+      // studyTemplate is NOT displayed in Done for Today tab
+      expect(screen.queryByText('Algorithm Deep Dive')).not.toBeInTheDocument();
+    });
+
+    it('automatically moves completed races back to Active when the next day arrives', () => {
+      // Completed yesterday
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayKey = getLocalDateKey(yesterday);
+
+      const completedRunYesterday: RaceRun = {
+        id: 'run-workout-yesterday',
+        templateId: workoutTemplate.id,
+        templateSnapshot: workoutTemplate,
+        startedAt: `${yesterdayKey}T08:00:00.000Z`,
+        completedAt: `${yesterdayKey}T08:15:00.000Z`,
+        status: 'completed',
+        totalAllocatedSeconds: 300,
+        totalActualSeconds: 290,
+        totalOvertimeSeconds: 0,
+        totalPausedSeconds: 0,
+        taskRuns: [],
+      };
+
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[workoutTemplate, studyTemplate]}
+          runs={[completedRunYesterday]}
+        />
+      );
+
+      // Since the run was yesterday, today workoutTemplate is back in Active!
+      const activeTab = screen.getByRole('button', { name: /^Active/i });
+      expect(activeTab).toHaveTextContent('2');
+
+      const doneTodayTab = screen.getByRole('button', { name: /^Done for Today/i });
+      expect(doneTodayTab).toHaveTextContent('0');
+
+      // Both templates are visible in Active
+      expect(screen.getByText('HIIT Morning Routine')).toBeInTheDocument();
+      expect(screen.getByText('Algorithm Deep Dive')).toBeInTheDocument();
+    });
+
+    it('triggers onToggleDoneToday callback when clicking the card checkmark button', () => {
+      const onToggleDoneToday = vi.fn();
+
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[workoutTemplate]}
+          runs={[]}
+          onToggleDoneToday={onToggleDoneToday}
+        />
+      );
+
+      const toggleBtn = screen.getByRole('button', { name: /Mark as Done for Today/i });
+      fireEvent.click(toggleBtn);
+
+      expect(onToggleDoneToday).toHaveBeenCalledWith('template-workout', false);
+    });
+
+    it('shows encouraging empty state when all active races are done for today', () => {
+      const todayKey = getLocalDateKey();
+      const completedRun: RaceRun = {
+        id: 'run-workout-today',
+        templateId: workoutTemplate.id,
+        templateSnapshot: workoutTemplate,
+        startedAt: `${todayKey}T08:00:00.000Z`,
+        completedAt: `${todayKey}T08:15:00.000Z`,
+        status: 'completed',
+        totalAllocatedSeconds: 300,
+        totalActualSeconds: 290,
+        totalOvertimeSeconds: 0,
+        totalPausedSeconds: 0,
+        taskRuns: [],
+      };
+
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[workoutTemplate]}
+          runs={[completedRun]}
+        />
+      );
+
+      // In Active tab, should show "All races completed for today! 🎉"
+      expect(screen.getByText('All races completed for today! 🎉')).toBeInTheDocument();
+      expect(screen.getByText(/View Done for Today \(1\)/i)).toBeInTheDocument();
+    });
   });
 });

@@ -39,6 +39,7 @@ export interface TimerTickData {
   isCountdownWarning: boolean;
   countdownSecondsRemaining: number;
   paceDeltaSeconds: number; // Positive = leading by X seconds, negative = trailing by X seconds
+  raceName?: string;
 }
 
 export type TimerListener = (data: TimerTickData) => void;
@@ -74,8 +75,18 @@ export class TimerEngine {
   private persistCallback?: (state: ActiveRunRuntimeState) => void;
   private raceCompletedCallback?: (run: RaceRun) => void;
 
+  private handleVisibilityOrFocus = () => {
+    if (this.timerState === 'RUNNING' || this.timerState === 'WARNING' || this.timerState === 'OVERTIME') {
+      this.tick();
+    }
+  };
+
   constructor(settings: AppSettings) {
     this.settings = settings;
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityOrFocus);
+      window.addEventListener('focus', this.handleVisibilityOrFocus);
+    }
   }
 
   updateSettings(settings: AppSettings) {
@@ -620,6 +631,7 @@ export class TimerEngine {
       isCountdownWarning,
       countdownSecondsRemaining: isCountdownWarning ? taskRemaining : 0,
       paceDeltaSeconds: paceDelta,
+      raceName: this.template?.name,
     };
   }
 
@@ -830,6 +842,10 @@ export class TimerEngine {
   destroy() {
     this.stopTicker();
     wakeLock.release();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityOrFocus);
+      window.removeEventListener('focus', this.handleVisibilityOrFocus);
+    }
     this.listeners.clear();
     this.stateListeners.clear();
     this.taskExpiredListeners.clear();
