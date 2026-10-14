@@ -489,4 +489,196 @@ describe('RaceDashboard - In-Progress & Saved Races Total Time Remaining', () =>
       expect(screen.getByDisplayValue('Name (A-Z)')).toHaveValue('name');
     });
   });
+
+  describe('Accumulated Race Time by Tab', () => {
+    const todayKey = getLocalDateKey();
+
+    const tActiveUnstarted: RaceTemplate = {
+      id: 't-active-unstarted',
+      name: 'Active Unstarted Race',
+      category: 'Work',
+      tags: [],
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [{ id: 'task-u', name: 'Task U', durationSeconds: 900, order: 0, enabled: true }], // 15m
+    };
+
+    const tActiveSaved: RaceTemplate = {
+      id: 't-active-saved',
+      name: 'Active Saved Race',
+      category: 'Fitness',
+      tags: [],
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [
+        { id: 'task-s1', name: 'Task S1', durationSeconds: 600, order: 0, enabled: true },
+        { id: 'task-s2', name: 'Task S2', durationSeconds: 1200, order: 1, enabled: true },
+      ], // Total 1800s (30m)
+    };
+
+    const tDoneToday: RaceTemplate = {
+      id: 't-done-today',
+      name: 'Done Today Race',
+      category: 'Health',
+      tags: [],
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [{ id: 'task-d', name: 'Task D', durationSeconds: 1200, order: 0, enabled: true }], // 20m
+    };
+
+    const tArchived: RaceTemplate = {
+      id: 't-archived',
+      name: 'Archived Race',
+      category: 'Misc',
+      tags: [],
+      isArchived: true,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [{ id: 'task-a', name: 'Task A', durationSeconds: 2700, order: 0, enabled: true }], // 45m
+    };
+
+    const completedRunToday: RaceRun = {
+      id: 'run-done-today',
+      templateId: tDoneToday.id,
+      templateSnapshot: tDoneToday,
+      startedAt: `${todayKey}T08:00:00.000Z`,
+      completedAt: `${todayKey}T08:20:00.000Z`,
+      status: 'completed',
+      totalAllocatedSeconds: 1200,
+      totalActualSeconds: 1200,
+      totalOvertimeSeconds: 0,
+      totalPausedSeconds: 0,
+      taskRuns: [],
+    };
+
+    // Saved run with 10m (600s) remaining out of 30m (1800s allocated, 1200s elapsed)
+    const savedRunForActive: ActiveRunRuntimeState = {
+      runId: 'run-active-saved',
+      templateId: tActiveSaved.id,
+      currentTaskIndex: 1,
+      timerState: 'PAUSED',
+      taskStartedAt: Date.now() - 1200000,
+      taskPausedAt: Date.now(),
+      taskAccumulatedPausedMs: 0,
+      raceStartedAt: Date.now() - 1200000,
+      racePausedAt: Date.now(),
+      raceAccumulatedPausedMs: 0,
+      lastTickTimestamp: Date.now(),
+      templateSnapshot: tActiveSaved,
+      taskRuns: [
+        {
+          taskId: 'task-s1',
+          taskSnapshot: tActiveSaved.tasks[0],
+          allocatedSeconds: 600,
+          actualSeconds: 600,
+          overtimeSeconds: 0,
+          status: 'completed',
+          events: [],
+        },
+        {
+          taskId: 'task-s2',
+          taskSnapshot: tActiveSaved.tasks[1],
+          allocatedSeconds: 1200,
+          actualSeconds: 600,
+          overtimeSeconds: 0,
+          status: 'active',
+          events: [],
+        },
+      ],
+    };
+
+    it('shows accumulated pending time in Active tab (unstarted duration + saved remaining)', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[tActiveUnstarted, tActiveSaved, tDoneToday, tArchived]}
+          runs={[completedRunToday]}
+          savedRaces={[savedRunForActive]}
+        />
+      );
+
+      // In Active tab:
+      // tActiveUnstarted pending = 15m (900s)
+      // tActiveSaved pending = 10m (600s remaining)
+      // Total Pending Time = 25m
+      expect(screen.getByLabelText('Pending Time: 25m')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 2 races/i)).toBeInTheDocument();
+    });
+
+    it('shows accumulated time for Done for Today tab', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[tActiveUnstarted, tActiveSaved, tDoneToday, tArchived]}
+          runs={[completedRunToday]}
+          savedRaces={[savedRunForActive]}
+        />
+      );
+
+      // Switch to Done for Today tab
+      const doneTodayTab = screen.getByRole('button', { name: /^Done for Today/i });
+      fireEvent.click(doneTodayTab);
+
+      // tDoneToday = 20m
+      expect(screen.getByLabelText('Done Today: 20m')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 1 race/i)).toBeInTheDocument();
+    });
+
+    it('shows accumulated time for Archived tab', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[tActiveUnstarted, tActiveSaved, tDoneToday, tArchived]}
+          runs={[completedRunToday]}
+          savedRaces={[savedRunForActive]}
+        />
+      );
+
+      // Switch to Archived tab
+      const archivedTab = screen.getByRole('button', { name: /^Archived/i });
+      fireEvent.click(archivedTab);
+
+      // tArchived = 45m
+      expect(screen.getByLabelText('Archived Time: 45m')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 1 race/i)).toBeInTheDocument();
+    });
+
+    it('shows accumulated total time for All tab (all race durations)', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[tActiveUnstarted, tActiveSaved, tDoneToday, tArchived]}
+          runs={[completedRunToday]}
+          savedRaces={[savedRunForActive]}
+        />
+      );
+
+      // Switch to All tab
+      const allTab = screen.getByRole('button', { name: /^All/i });
+      fireEvent.click(allTab);
+
+      // 15m + 30m + 20m + 45m = 110m = 1h 50m
+      expect(screen.getByLabelText('Total Time: 1h 50m')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 4 races/i)).toBeInTheDocument();
+    });
+
+    it('updates accumulated time when filtering by search query', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[tActiveUnstarted, tActiveSaved, tDoneToday, tArchived]}
+          runs={[completedRunToday]}
+          savedRaces={[savedRunForActive]}
+        />
+      );
+
+      // In Active tab (total 25m): Search for "Unstarted"
+      const searchInput = screen.getByPlaceholderText(/Search races/i);
+      fireEvent.change(searchInput, { target: { value: 'Unstarted' } });
+
+      // Only tActiveUnstarted matches (15m)
+      expect(screen.getByLabelText('Pending Time: 15m')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 1 race/i)).toBeInTheDocument();
+    });
+  });
 });
