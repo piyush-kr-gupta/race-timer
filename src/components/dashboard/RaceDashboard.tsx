@@ -4,12 +4,40 @@ import { TimerTickData } from '../../services/timer/timerEngine';
 import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { RaceCard } from './RaceCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { formatTime } from '../../utils/duration';
+import { formatTime, formatDurationHuman } from '../../utils/duration';
 import { isTemplateDoneToday } from '../../utils/dateUtils';
 import { useCurrentDay } from '../../hooks/useCurrentDay';
-import { Plus, Search, Play, Sparkles, BookmarkCheck, Trash2, CheckCircle2, Trophy } from 'lucide-react';
+import { Plus, Search, Play, Sparkles, BookmarkCheck, Trash2, CheckCircle2, Trophy, Clock } from 'lucide-react';
 
 export const DASHBOARD_SORT_STORAGE_KEY = 'race_timer_dashboard_sort';
+
+export function getTemplateAllocatedSeconds(template: RaceTemplate): number {
+  const enabledTasks = template.tasks.filter((t) => t.enabled);
+  const tasks = enabledTasks.length > 0 ? enabledTasks : template.tasks;
+  return tasks.reduce((sum, t) => sum + t.durationSeconds, 0);
+}
+
+export function calculateSavedRaceRemainingSeconds(
+  state: ActiveRunRuntimeState,
+  isCurrentActive: boolean,
+  activeTickData?: TimerTickData | null
+): number {
+  if (isCurrentActive && activeTickData) {
+    return Math.max(0, activeTickData.raceRemainingSeconds);
+  }
+  const enabledTasks = state.templateSnapshot.tasks.filter((t) => t.enabled);
+  const tasksForTotal = enabledTasks.length > 0 ? enabledTasks : state.templateSnapshot.tasks;
+  const totalAllocated = tasksForTotal.reduce((sum, t) => sum + t.durationSeconds, 0);
+
+  const now = Date.now();
+  const raceCurrentPaused = state.racePausedAt !== null ? now - state.racePausedAt : 0;
+  const totalRacePausedMs = state.raceAccumulatedPausedMs + raceCurrentPaused;
+  const rawRaceElapsedMs = state.raceStartedAt > 0
+    ? Math.max(0, now - state.raceStartedAt - totalRacePausedMs)
+    : 0;
+  const raceElapsed = Math.floor(rawRaceElapsedMs / 1000);
+  return Math.max(0, totalAllocated - raceElapsed);
+}
 
 interface RaceDashboardProps {
   templates: RaceTemplate[];
@@ -199,6 +227,37 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
   }, [templates, searchQuery, selectedCategory, filterMode, sortBy, isDoneTodayMap]);
+
+  // Total accumulated time for the currently selected tab & filters
+  const accumulatedSeconds = useMemo(() => {
+    return filteredTemplates.reduce((sum, template) => {
+      if (filterMode === 'active') {
+        const savedState = savedRacesByTemplateId.get(template.id);
+        if (savedState) {
+          const isCurrentActive = isRaceActive && activeRunId === savedState.runId;
+          return sum + calculateSavedRaceRemainingSeconds(savedState, isCurrentActive, activeTickData);
+        }
+        return sum + getTemplateAllocatedSeconds(template);
+      }
+      // For 'all', 'done-today', 'archived', show the total accumulated duration of the races
+      return sum + getTemplateAllocatedSeconds(template);
+    }, 0);
+  }, [filteredTemplates, filterMode, savedRacesByTemplateId, isRaceActive, activeRunId, activeTickData]);
+
+  const accumulatedTimeLabel = useMemo(() => {
+    switch (filterMode) {
+      case 'active':
+        return 'Pending Time';
+      case 'done-today':
+        return 'Done Today';
+      case 'archived':
+        return 'Archived Time';
+      case 'all':
+        return 'Total Time';
+    }
+  }, [filterMode]);
+
+  const timeBadgeColor = filterMode === 'done-today' ? 'text-emerald-400' : 'text-orange-400';
 
   return (
     <div className="space-y-6 pb-12">
@@ -416,7 +475,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
       </div>
 
       {/* Filter Tabs: Active vs Done for Today vs Archived vs All */}
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
         <div className="flex items-center gap-1.5 text-xs font-medium flex-wrap">
           <button
             onClick={() => setFilterMode('active')}
@@ -478,9 +537,24 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
           </button>
         </div>
 
-        <span className="text-xs text-slate-400 shrink-0">
-          Showing {filteredTemplates.length} {filteredTemplates.length === 1 ? 'race' : 'races'}
-        </span>
+        <div className="flex items-center gap-2.5 text-xs text-slate-400 shrink-0 flex-wrap">
+          <span>
+            Showing {filteredTemplates.length} {filteredTemplates.length === 1 ? 'race' : 'races'}
+          </span>
+          <span className="text-slate-700 hidden sm:inline">•</span>
+          <div
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 font-medium shadow-sm"
+            aria-label={`${accumulatedTimeLabel}: ${formatDurationHuman(accumulatedSeconds)}`}
+          >
+            <Clock className={`w-3.5 h-3.5 ${timeBadgeColor} shrink-0`} />
+            <span>
+              <span className="text-slate-400">{accumulatedTimeLabel}: </span>
+              <strong className="text-slate-100 font-semibold font-mono">
+                {formatDurationHuman(accumulatedSeconds)}
+              </strong>
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Race Cards Grid */}
