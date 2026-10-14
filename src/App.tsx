@@ -15,8 +15,11 @@ import { InterruptionModal } from './components/player/InterruptionModal';
 import { RaceResults } from './components/results/RaceResults';
 import { RaceHistoryView } from './components/history/RaceHistoryView';
 import { SettingsView } from './components/settings/SettingsView';
-import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from './types/race';
+import { AccountabilityModal } from './components/common/AccountabilityModal';
+import { RaceTemplate, RaceRun, ActiveRunRuntimeState, ApologyEntry } from './types/race';
 import { storage, isRunFullyCompleted } from './services/storage/indexedDb';
+import { isPastCutoffTime, getLocalDateKey, isTemplateDoneToday } from './utils/dateUtils';
+import { DEFAULT_PLEDGE_MESSAGE } from './services/storage/seedData';
 
 export function App() {
   const { settings, updateSettings } = useSettings();
@@ -107,6 +110,49 @@ export function App() {
 
   const dismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Keep current time updated for daily cutoff check (every 15 seconds)
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const todayKey = getLocalDateKey(currentTime);
+
+  // Scheduled race templates that have not been completed today
+  const pendingTemplatesToday = useMemo(() => {
+    return templates.filter((t) => !t.isArchived && !isTemplateDoneToday(t, runs, todayKey));
+  }, [templates, runs, todayKey]);
+
+  // Check if today's accountability pledge has already been recorded
+  const hasApologizedToday = useMemo(() => {
+    return (settings.apologyLog || []).some((entry) => entry.dateKey === todayKey);
+  }, [settings.apologyLog, todayKey]);
+
+  // Persistent popup triggers if: enabled, past cutoff time, pending races exist, and not yet apologized today
+  const isAccountabilityTriggered = Boolean(
+    (settings.accountabilityEnabled !== false) &&
+    isPastCutoffTime(settings.accountabilityCutoffTime || '21:00', currentTime) &&
+    pendingTemplatesToday.length > 0 &&
+    !hasApologizedToday
+  );
+
+  const handleSubmitApology = (message: string) => {
+    const newEntry: ApologyEntry = {
+      id: `apology-${Date.now()}`,
+      dateKey: todayKey,
+      timestamp: new Date().toISOString(),
+      message,
+      pendingRaceNames: pendingTemplatesToday.map((t) => t.name),
+      pendingRaceCount: pendingTemplatesToday.length,
+    };
+    const updatedLog = [newEntry, ...(settings.apologyLog || [])];
+    updateSettings({ apologyLog: updatedLog });
+    addToast('Accountability apology recorded. Tomorrow is a new opportunity to conquer your goals!', undefined, 'info');
   };
 
   // Filter out any fully completed runs from saved races
@@ -366,6 +412,7 @@ export function App() {
             {currentTab === 'history' && (
               <RaceHistoryView
                 runs={runs}
+                apologyLog={settings.apologyLog || []}
                 onSelectRun={(run) => {
                   setViewingResultRun(run);
                   setActiveView('results');
@@ -378,6 +425,15 @@ export function App() {
                 onClearAllRuns={async () => {
                   await clearAllRuns();
                   addToast('All race history cleared.');
+                }}
+                onDeleteApology={(id) => {
+                  const updated = (settings.apologyLog || []).filter((a) => a.id !== id);
+                  updateSettings({ apologyLog: updated });
+                  addToast('Apology record deleted.');
+                }}
+                onClearApologies={() => {
+                  updateSettings({ apologyLog: [] });
+                  addToast('All apologies cleared.');
                 }}
               />
             )}
@@ -463,6 +519,15 @@ export function App() {
             setActiveRaceSwitchPrompt(null);
           }
         }}
+      />
+
+      {/* 9 PM ACCOUNTABILITY POPUP MODAL */}
+      <AccountabilityModal
+        isOpen={isAccountabilityTriggered}
+        targetMessage={settings.accountabilityPledgeMessage || DEFAULT_PLEDGE_MESSAGE}
+        cutoffTime={settings.accountabilityCutoffTime || '21:00'}
+        pendingTemplates={pendingTemplatesToday}
+        onSubmitApology={handleSubmitApology}
       />
 
       {/* TOAST CONTAINER */}

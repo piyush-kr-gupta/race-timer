@@ -1,4 +1,7 @@
-import { RaceTemplate, RaceRun, AppSettings } from '../../types/race';
+import { AppSettings, RaceTemplate, RaceRun } from '../../types/race';
+
+export const DEFAULT_PLEDGE_MESSAGE =
+  'My end Goal is to prepare for Google. I have failed today but I will NEVER GIVE UP. I have to dig deep and PUSH PAST MY LIMITS.';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultTaskDuration: 300, // 5 minutes
@@ -23,6 +26,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dashboardSortBy: 'updated',
   skipConfirmations: {},
   lastBackupAt: null,
+  accountabilityEnabled: true,
+  accountabilityCutoffTime: '21:00',
+  accountabilityPledgeMessage: DEFAULT_PLEDGE_MESSAGE,
+  apologyLog: [],
 };
 
 export const SEED_TEMPLATES: RaceTemplate[] = [

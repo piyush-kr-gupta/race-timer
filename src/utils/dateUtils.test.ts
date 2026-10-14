@@ -4,6 +4,8 @@ import {
   isSameLocalDay,
   isRunCompletedToday,
   isTemplateDoneToday,
+  isPastCutoffTime,
+  formatCutoffTimeDisplay,
 } from './dateUtils';
 import { RaceTemplate, RaceRun } from '../types/race';
 
@@ -140,6 +142,48 @@ describe('dateUtils', () => {
       });
       // User moved it back to Active today
       expect(isTemplateDoneToday(manualActiveTemplate, [run], '2026-10-12')).toBe(false);
+    });
+  });
+
+  describe('isPastCutoffTime', () => {
+    it('returns true when current time is at or past cutoff time', () => {
+      // 9:00 PM (21:00) exactly
+      const atNine = new Date(2026, 9, 14, 21, 0);
+      expect(isPastCutoffTime('21:00', atNine)).toBe(true);
+
+      // 9:15 PM (21:15)
+      const afterNine = new Date(2026, 9, 14, 21, 15);
+      expect(isPastCutoffTime('21:00', afterNine)).toBe(true);
+
+      // 11:45 PM (23:45)
+      const lateNight = new Date(2026, 9, 14, 23, 45);
+      expect(isPastCutoffTime('21:00', lateNight)).toBe(true);
+    });
+
+    it('returns false when current time is before cutoff time', () => {
+      // 8:59 PM (20:59)
+      const beforeNine = new Date(2026, 9, 14, 20, 59);
+      expect(isPastCutoffTime('21:00', beforeNine)).toBe(false);
+
+      // Morning 10:30 AM
+      const morning = new Date(2026, 9, 14, 10, 30);
+      expect(isPastCutoffTime('21:00', morning)).toBe(false);
+    });
+
+    it('handles custom cutoff times accurately', () => {
+      const tenThirty = new Date(2026, 9, 14, 22, 30);
+      expect(isPastCutoffTime('22:00', tenThirty)).toBe(true);
+      expect(isPastCutoffTime('22:45', tenThirty)).toBe(false);
+    });
+  });
+
+  describe('formatCutoffTimeDisplay', () => {
+    it('formats 24h string into 12h AM/PM display string', () => {
+      expect(formatCutoffTimeDisplay('21:00')).toBe('9:00 PM');
+      expect(formatCutoffTimeDisplay('21:30')).toBe('9:30 PM');
+      expect(formatCutoffTimeDisplay('09:00')).toBe('9:00 AM');
+      expect(formatCutoffTimeDisplay('12:00')).toBe('12:00 PM');
+      expect(formatCutoffTimeDisplay('00:00')).toBe('12:00 AM');
     });
   });
 });

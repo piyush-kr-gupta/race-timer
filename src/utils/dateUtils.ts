@@ -59,3 +59,37 @@ export function isTemplateDoneToday(
     return getLocalDateKey(new Date(runTimestamp)) === todayKey;
   });
 }
+
+/**
+ * Checks whether a given date/time is at or past a cutoff time string in 'HH:MM' (24-hour) format.
+ * Defaults to '21:00' (9:00 PM).
+ */
+export function isPastCutoffTime(cutoffTimeStr: string = '21:00', date: Date = new Date()): boolean {
+  if (!cutoffTimeStr) return false;
+  const parts = cutoffTimeStr.split(':');
+  const cutoffHour = parseInt(parts[0], 10);
+  const cutoffMinute = parseInt(parts[1] || '0', 10);
+
+  if (isNaN(cutoffHour)) return false;
+
+  const currentMinutes = date.getHours() * 60 + date.getMinutes();
+  const cutoffMinutes = cutoffHour * 60 + (isNaN(cutoffMinute) ? 0 : cutoffMinute);
+
+  return currentMinutes >= cutoffMinutes;
+}
+
+/**
+ * Formats a 24-hour 'HH:MM' time string into friendly 12-hour format, e.g. '21:00' -> '9:00 PM'.
+ */
+export function formatCutoffTimeDisplay(cutoffTimeStr: string = '21:00'): string {
+  if (!cutoffTimeStr) return '9:00 PM';
+  const parts = cutoffTimeStr.split(':');
+  const hour = parseInt(parts[0], 10);
+  const minute = parseInt(parts[1] || '0', 10);
+  if (isNaN(hour)) return '9:00 PM';
+
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  const displayMinute = minute.toString().padStart(2, '0');
+  return `${displayHour}:${displayMinute} ${ampm}`;
+}

@@ -15,7 +15,11 @@ import {
   Moon,
   Monitor,
   Keyboard,
+  ShieldAlert,
+  Flame,
 } from 'lucide-react';
+import { DEFAULT_PLEDGE_MESSAGE } from '../../services/storage/seedData';
+import { formatCutoffTimeDisplay } from '../../utils/dateUtils';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -33,6 +37,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onShowToast,
 }) => {
   const [confirmResetSeed, setConfirmResetSeed] = useState(false);
+  const [confirmClearApologies, setConfirmClearApologies] = useState(false);
   const [testingAudio, setTestingAudio] = useState(false);
 
   const handleTestAudio = () => {
@@ -417,6 +422,114 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
+      {/* ACCOUNTABILITY & DAILY PLEDGE SECTION */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400">
+              <ShieldAlert className="w-5 h-5 text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <span>Accountability & Daily Pledge</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Enforce a persistent commitment dialogue if scheduled races are incomplete by the daily cutoff.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-300 cursor-pointer select-none bg-slate-950 px-3.5 py-2 rounded-xl border border-slate-800 self-start sm:self-center">
+            <span>Enforce Accountability</span>
+            <input
+              type="checkbox"
+              checked={settings.accountabilityEnabled !== false}
+              onChange={(e) => onUpdateSettings({ accountabilityEnabled: e.target.checked })}
+              className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-rose-500 focus:ring-rose-500 cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {settings.accountabilityEnabled !== false && (
+          <div className="space-y-5 pt-1">
+            {/* Cutoff Time Input */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="text-sm font-semibold text-slate-200 block">Daily Cutoff Time</span>
+                <span className="text-xs text-slate-400">
+                  Cutoff deadline when unfinished races trigger the persistent popup (current:{' '}
+                  <span className="text-rose-400 font-semibold">
+                    {formatCutoffTimeDisplay(settings.accountabilityCutoffTime || '21:00')}
+                  </span>
+                  )
+                </span>
+              </div>
+              <input
+                type="time"
+                value={settings.accountabilityCutoffTime || '21:00'}
+                onChange={(e) => onUpdateSettings({ accountabilityCutoffTime: e.target.value })}
+                className="bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-xl px-3 py-1.5 text-sm font-mono text-slate-200 outline-none w-36 text-center cursor-pointer"
+              />
+            </div>
+
+            {/* Pledge Message Input */}
+            <div className="space-y-2 pt-2 border-t border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-slate-200 block">Exact Pledge Message</span>
+                  <span className="text-xs text-slate-400">
+                    Must be typed word-for-word into the persistent popup before the "Apology to Self" button unlocks.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ accountabilityPledgeMessage: DEFAULT_PLEDGE_MESSAGE })}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition border border-slate-800 cursor-pointer shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Default</span>
+                </button>
+              </div>
+
+              <textarea
+                value={settings.accountabilityPledgeMessage || DEFAULT_PLEDGE_MESSAGE}
+                onChange={(e) => onUpdateSettings({ accountabilityPledgeMessage: e.target.value })}
+                rows={3}
+                className="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 rounded-xl p-3 text-xs sm:text-sm text-slate-200 outline-none resize-none leading-relaxed"
+                placeholder="Enter custom pledge message..."
+              />
+            </div>
+
+            {/* Apologies Tracker Summary */}
+            <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/60">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                  <Flame className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-200 block">
+                    Apologies Recorded: {settings.apologyLog?.length || 0}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    All apologies are stored locally and included in backups. View full details in the History tab.
+                  </span>
+                </div>
+              </div>
+
+              {settings.apologyLog && settings.apologyLog.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearApologies(true)}
+                  className="px-3 py-1.5 text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/40 rounded-xl transition cursor-pointer shrink-0"
+                >
+                  Clear Apologies Log
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* COMPREHENSIVE LOCAL DATA MANAGEMENT (Required by User Instructions) */}
       <DataManagementSection
         settings={settings}
@@ -432,6 +545,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         confirmText="Reset Seed Data"
         onConfirm={handleConfirmResetSeed}
         onCancel={() => setConfirmResetSeed(false)}
+      />
+
+      {/* Clear Apologies Dialog */}
+      <ConfirmDialog
+        isOpen={confirmClearApologies}
+        title="Clear Apology History?"
+        message="Are you sure you want to delete all logged apology records? This action cannot be undone."
+        isDestructive
+        confirmText="Clear Apologies"
+        onConfirm={() => {
+          onUpdateSettings({ apologyLog: [] });
+          setConfirmClearApologies(false);
+          onShowToast('Apology history log cleared.');
+        }}
+        onCancel={() => setConfirmClearApologies(false)}
       />
     </div>
   );

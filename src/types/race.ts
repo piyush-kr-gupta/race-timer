@@ -133,6 +133,20 @@ export interface AppSettings {
   dashboardSortBy: RaceSortOption; // Persistent sort preference in dashboard
   skipConfirmations: Record<string, boolean>; // e.g. { deleteRace: false, deleteTask: false }
   lastBackupAt: string | null;
+  // 9 PM Deadline Accountability
+  accountabilityEnabled: boolean;
+  accountabilityCutoffTime: string; // e.g. '21:00' (24-hour HH:MM)
+  accountabilityPledgeMessage: string;
+  apologyLog: ApologyEntry[];
+}
+
+export interface ApologyEntry {
+  id: string;
+  dateKey: string; // 'YYYY-MM-DD'
+  timestamp: string; // ISO
+  message: string;
+  pendingRaceNames: string[];
+  pendingRaceCount: number;
 }
 
 export type RaceSortOption = 'updated' | 'name' | 'duration-desc' | 'duration-asc';
