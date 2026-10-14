@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from '../../types/race';
+import React, { useState, useEffect, useMemo } from 'react';
+import { RaceTemplate, RaceRun, ActiveRunRuntimeState, RaceSortOption } from '../../types/race';
 import { TimerTickData } from '../../services/timer/timerEngine';
 import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { RaceCard } from './RaceCard';
@@ -9,6 +9,8 @@ import { isTemplateDoneToday } from '../../utils/dateUtils';
 import { useCurrentDay } from '../../hooks/useCurrentDay';
 import { Plus, Search, Play, Sparkles, BookmarkCheck, Trash2, CheckCircle2, Trophy } from 'lucide-react';
 
+export const DASHBOARD_SORT_STORAGE_KEY = 'race_timer_dashboard_sort';
+
 interface RaceDashboardProps {
   templates: RaceTemplate[];
   runs: RaceRun[];
@@ -17,6 +19,8 @@ interface RaceDashboardProps {
   activeRaceName?: string;
   activeRunId?: string;
   activeTickData?: TimerTickData | null;
+  sortBy?: RaceSortOption;
+  onSortByChange?: (newSort: RaceSortOption) => void;
   onResumeActiveRace?: () => void;
   onResumeSavedRace?: (state: ActiveRunRuntimeState) => void;
   onDiscardSavedRace?: (runId: string) => void;
@@ -37,6 +41,8 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   activeRaceName,
   activeRunId,
   activeTickData,
+  sortBy: propSortBy,
+  onSortByChange,
   onResumeActiveRace,
   onResumeSavedRace,
   onDiscardSavedRace,
@@ -51,7 +57,35 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'active' | 'done-today' | 'archived'>('active');
-  const [sortBy, setSortBy] = useState<'updated' | 'name' | 'duration-desc' | 'duration-asc'>('updated');
+  const [sortBy, setSortBy] = useState<RaceSortOption>(() => {
+    if (propSortBy) return propSortBy;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem(DASHBOARD_SORT_STORAGE_KEY);
+        if (saved === 'updated' || saved === 'name' || saved === 'duration-desc' || saved === 'duration-asc') {
+          return saved as RaceSortOption;
+        }
+      }
+    } catch {}
+    return 'updated';
+  });
+
+  // Keep state in sync if prop changes from external settings
+  useEffect(() => {
+    if (propSortBy && propSortBy !== sortBy) {
+      setSortBy(propSortBy);
+    }
+  }, [propSortBy]);
+
+  const handleSortChange = (newSort: RaceSortOption) => {
+    setSortBy(newSort);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(DASHBOARD_SORT_STORAGE_KEY, newSort);
+      }
+    } catch {}
+    onSortByChange?.(newSort);
+  };
 
   const todayKey = useCurrentDay();
   const [discardTarget, setDiscardTarget] = useState<{ runId: string; name: string } | null>(null);
@@ -341,6 +375,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
           {/* Category Dropdown */}
           <div className="relative">
             <select
+              aria-label="Filter races by category"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px] cursor-pointer"
@@ -357,8 +392,9 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
           {/* Sort Dropdown */}
           <div className="relative">
             <select
+              aria-label="Sort races by"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => handleSortChange(e.target.value as RaceSortOption)}
               className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px] cursor-pointer"
             >
               <option value="updated">Recently Updated</option>

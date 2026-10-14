@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   keyboardShortcutsEnabled: true,
   wakeLockEnabled: true,
   tabTitleTimerEnabled: true,
+  dashboardSortBy: 'updated',
   skipConfirmations: {},
   lastBackupAt: null,
 };

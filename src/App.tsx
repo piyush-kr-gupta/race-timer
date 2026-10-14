@@ -357,6 +357,8 @@ export function App() {
                 onDuplicateRace={handleDuplicateRace}
                 onToggleArchive={handleToggleArchiveRace}
                 onDeleteRace={(id, name) => setDeleteTarget({ id, name })}
+                sortBy={settings.dashboardSortBy}
+                onSortByChange={(newSort) => updateSettings({ dashboardSortBy: newSort })}
                 onToggleDoneToday={toggleDoneToday}
               />
             )}

@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { RaceDashboard } from './RaceDashboard';
+import { RaceDashboard, DASHBOARD_SORT_STORAGE_KEY } from './RaceDashboard';
 import { RaceTemplate, RaceRun, ActiveRunRuntimeState } from '../../types/race';
 import { TimerTickData } from '../../services/timer/timerEngine';
 import { getLocalDateKey } from '../../utils/dateUtils';
@@ -361,6 +361,132 @@ describe('RaceDashboard - In-Progress & Saved Races Total Time Remaining', () =>
       // In Active tab, should show "All races completed for today! 🎉"
       expect(screen.getByText('All races completed for today! 🎉')).toBeInTheDocument();
       expect(screen.getByText(/View Done for Today \(1\)/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Persistent Dashboard Sorting Options', () => {
+    const templateA: RaceTemplate = {
+      ...mockTemplate,
+      id: 'template-alpha',
+      name: 'Alpha Routine',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      tasks: [{ id: 't-1', name: 'Task 1', durationSeconds: 600, order: 0, enabled: true }],
+    };
+
+    const templateB: RaceTemplate = {
+      ...mockTemplate,
+      id: 'template-beta',
+      name: 'Beta Routine',
+      updatedAt: '2026-10-02T00:00:00.000Z',
+      tasks: [{ id: 't-2', name: 'Task 2', durationSeconds: 120, order: 0, enabled: true }],
+    };
+
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it('defaults to "updated" sort when no prop or localStorage is set', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[templateA, templateB]}
+        />
+      );
+
+      const sortSelect = screen.getByLabelText('Sort races by');
+      expect(sortSelect).toHaveValue('updated');
+
+      // Most recently updated (templateB, Oct 2) appears before templateA (Oct 1)
+      const cards = screen.getAllByRole('heading', { level: 3 });
+      const cardTitles = cards.map((c) => c.textContent);
+      expect(cardTitles[0]).toBe('Beta Routine');
+      expect(cardTitles[1]).toBe('Alpha Routine');
+    });
+
+    it('initializes from sortBy prop when provided', () => {
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[templateA, templateB]}
+          sortBy="name"
+        />
+      );
+
+      expect(screen.getByDisplayValue('Name (A-Z)')).toHaveValue('name');
+
+      // Sorted alphabetically: Alpha Routine before Beta Routine
+      const cards = screen.getAllByRole('heading', { level: 3 });
+      const cardTitles = cards.map((c) => c.textContent);
+      expect(cardTitles[0]).toBe('Alpha Routine');
+      expect(cardTitles[1]).toBe('Beta Routine');
+    });
+
+    it('initializes from localStorage when sortBy prop is omitted', () => {
+      localStorage.setItem(DASHBOARD_SORT_STORAGE_KEY, 'duration-desc');
+
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[templateA, templateB]}
+        />
+      );
+
+      expect(screen.getByDisplayValue('Duration (Longest)')).toHaveValue('duration-desc');
+
+      // Alpha (600s) has longer duration than Beta (120s)
+      const cards = screen.getAllByRole('heading', { level: 3 });
+      const cardTitles = cards.map((c) => c.textContent);
+      expect(cardTitles[0]).toBe('Alpha Routine');
+      expect(cardTitles[1]).toBe('Beta Routine');
+    });
+
+    it('saves to localStorage and calls onSortByChange when user changes sort option', () => {
+      const onSortByChange = vi.fn();
+
+      render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[templateA, templateB]}
+          onSortByChange={onSortByChange}
+        />
+      );
+
+      const sortSelect = screen.getByDisplayValue('Recently Updated');
+      fireEvent.change(sortSelect, { target: { value: 'duration-asc' } });
+
+      // Calls callback with new sort
+      expect(onSortByChange).toHaveBeenCalledWith('duration-asc');
+
+      // Persists in localStorage
+      expect(localStorage.getItem(DASHBOARD_SORT_STORAGE_KEY)).toBe('duration-asc');
+
+      // UI updates sort: Beta (120s) before Alpha (600s)
+      const cards = screen.getAllByRole('heading', { level: 3 });
+      const cardTitles = cards.map((c) => c.textContent);
+      expect(cardTitles[0]).toBe('Beta Routine');
+      expect(cardTitles[1]).toBe('Alpha Routine');
+    });
+
+    it('synchronizes when sortBy prop changes from external settings', () => {
+      const { rerender } = render(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[templateA, templateB]}
+          sortBy="updated"
+        />
+      );
+
+      expect(screen.getByDisplayValue('Recently Updated')).toHaveValue('updated');
+
+      rerender(
+        <RaceDashboard
+          {...defaultProps}
+          templates={[templateA, templateB]}
+          sortBy="name"
+        />
+      );
+
+      expect(screen.getByDisplayValue('Name (A-Z)')).toHaveValue('name');
     });
   });
 });

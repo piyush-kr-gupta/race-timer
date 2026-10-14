@@ -35,4 +35,33 @@ class AudioContextMock {
 if (typeof window !== 'undefined') {
   (window as unknown as { AudioContext: typeof AudioContextMock }).AudioContext = AudioContextMock;
   (window as unknown as { webkitAudioContext: typeof AudioContextMock }).webkitAudioContext = AudioContextMock;
+
+  let store: Record<string, string> = {};
+  const mockLocalStorage = {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+  };
+
+  Object.defineProperty(window, 'localStorage', {
+    value: mockLocalStorage,
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: mockLocalStorage,
+    writable: true,
+    configurable: true,
+  });
 }

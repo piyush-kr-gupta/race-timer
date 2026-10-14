@@ -130,9 +130,12 @@ export interface AppSettings {
   keyboardShortcutsEnabled: boolean;
   wakeLockEnabled: boolean;
   tabTitleTimerEnabled: boolean; // Display remaining timer in Chrome tab title (MM:SS)
+  dashboardSortBy: RaceSortOption; // Persistent sort preference in dashboard
   skipConfirmations: Record<string, boolean>; // e.g. { deleteRace: false, deleteTask: false }
   lastBackupAt: string | null;
 }
+
+export type RaceSortOption = 'updated' | 'name' | 'duration-desc' | 'duration-asc';
 
 export interface BackupExportData {
   schemaVersion: number;
