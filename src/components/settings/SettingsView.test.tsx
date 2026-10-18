@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SettingsView } from './SettingsView';
 import { DEFAULT_SETTINGS, DEFAULT_PLEDGE_MESSAGE } from '../../services/storage/seedData';
+import { speech } from '../../services/timer/speechService';
 
 describe('SettingsView Accountability Section', () => {
   it('renders Accountability & Daily Pledge section with default cutoff and message', () => {
@@ -69,5 +70,29 @@ describe('SettingsView Accountability Section', () => {
     const resetButton = screen.getByRole('button', { name: /reset default/i });
     fireEvent.click(resetButton);
     expect(handleUpdateSettings).toHaveBeenCalledWith({ accountabilityPledgeMessage: DEFAULT_PLEDGE_MESSAGE });
+  });
+
+  it('renders Text-to-Speech task name announcement setting and toggles switch', () => {
+    const handleUpdateSettings = vi.fn();
+
+    render(
+      <SettingsView
+        settings={DEFAULT_SETTINGS}
+        onUpdateSettings={handleUpdateSettings}
+        onResetSeedData={vi.fn().mockResolvedValue({ added: 0, updated: 0 })}
+        onRefreshData={vi.fn()}
+        onShowToast={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Announce Task Name (Text-to-Speech)')).toBeInTheDocument();
+    expect(screen.getByText(/Spells out \/ speaks the task name aloud/i)).toBeInTheDocument();
+
+    const testVoiceBtn = screen.getByRole('button', { name: /test voice/i });
+    expect(testVoiceBtn).toBeInTheDocument();
+
+    const speakSpy = vi.spyOn(speech, 'speak').mockReturnValue(true);
+    fireEvent.click(testVoiceBtn);
+    expect(speakSpy).toHaveBeenCalledWith('Problem Understanding & Questioning');
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TimerEngine } from './timerEngine';
 import { audio } from './audioService';
+import { speech } from './speechService';
 import { DEFAULT_SETTINGS } from '../storage/seedData';
 import { RaceTemplate } from '../../types/race';
 
@@ -525,6 +526,88 @@ describe('TimerEngine', () => {
       expect(recoveredRun?.sessionTasks?.[0].title).toBe('30-second plank');
       expect(recoveredRun?.sessionTasks?.[0].completed).toBe(true);
       freshEngine.destroy();
+    });
+  });
+
+  describe('Text-to-Speech Task Name Announcement', () => {
+    it('spells out / announces the task name (not race name) when a race starts', () => {
+      const speakSpy = vi.spyOn(speech, 'speak').mockReturnValue(true);
+
+      engine.initializeRun(mockTemplate);
+      engine.start();
+
+      expect(speakSpy).toHaveBeenCalledTimes(1);
+      expect(speakSpy).toHaveBeenCalledWith('First Task');
+      expect(speakSpy).not.toHaveBeenCalledWith(mockTemplate.name);
+    });
+
+    it('announces the next task name when advancing to next task', () => {
+      const speakSpy = vi.spyOn(speech, 'speak').mockReturnValue(true);
+
+      engine.initializeRun(mockTemplate);
+      engine.start();
+      speakSpy.mockClear();
+
+      engine.completeTask(); // advances to task 2
+
+      expect(speakSpy).toHaveBeenCalledTimes(1);
+      expect(speakSpy).toHaveBeenCalledWith('Second Task');
+      expect(speakSpy).not.toHaveBeenCalledWith(mockTemplate.name);
+    });
+
+    it('announces the task name when restartTask is called', () => {
+      const speakSpy = vi.spyOn(speech, 'speak').mockReturnValue(true);
+
+      engine.initializeRun(mockTemplate);
+      engine.start();
+      speakSpy.mockClear();
+
+      engine.restartTask();
+
+      expect(speakSpy).toHaveBeenCalledTimes(1);
+      expect(speakSpy).toHaveBeenCalledWith('First Task');
+    });
+
+    it('does not speak when ttsTaskNameEnabled is false in settings', () => {
+      const speakSpy = vi.spyOn(speech, 'speak').mockReturnValue(true);
+
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        ttsTaskNameEnabled: false,
+      });
+
+      engine.initializeRun(mockTemplate);
+      engine.start();
+
+      expect(speakSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not speak when soundEnabled is false in settings', () => {
+      const speakSpy = vi.spyOn(speech, 'speak').mockReturnValue(true);
+
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        soundEnabled: false,
+      });
+
+      engine.initializeRun(mockTemplate);
+      engine.start();
+
+      expect(speakSpy).not.toHaveBeenCalled();
+    });
+
+    it('cancels speech on pause and finish', () => {
+      const cancelSpy = vi.spyOn(speech, 'cancel');
+
+      engine.initializeRun(mockTemplate);
+      engine.start();
+      engine.pause();
+
+      expect(cancelSpy).toHaveBeenCalled();
+
+      cancelSpy.mockClear();
+      engine.finishRace();
+      expect(cancelSpy).toHaveBeenCalled();
     });
   });
 });

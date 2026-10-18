@@ -8,6 +8,7 @@ import {
   SessionTaskItem,
 } from '../../types/race';
 import { audio } from './audioService';
+import { speech } from './speechService';
 import { wakeLock } from './wakeLock';
 import { notifications } from './notificationService';
 
@@ -83,6 +84,10 @@ export class TimerEngine {
 
   constructor(settings: AppSettings) {
     this.settings = settings;
+    audio.setEnabled(settings.soundEnabled);
+    audio.setVolume(settings.soundVolume);
+    speech.setEnabled(settings.soundEnabled && settings.ttsTaskNameEnabled !== false);
+    speech.setVolume(settings.soundVolume);
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this.handleVisibilityOrFocus);
       window.addEventListener('focus', this.handleVisibilityOrFocus);
@@ -93,6 +98,8 @@ export class TimerEngine {
     this.settings = settings;
     audio.setEnabled(settings.soundEnabled);
     audio.setVolume(settings.soundVolume);
+    speech.setEnabled(settings.soundEnabled && settings.ttsTaskNameEnabled !== false);
+    speech.setVolume(settings.soundVolume);
   }
 
   setPersistCallback(cb: (state: ActiveRunRuntimeState) => void) {
@@ -204,6 +211,7 @@ export class TimerEngine {
         currentRun.status = 'active';
         currentRun.startedAt = nowIso;
         currentRun.events.push({ type: 'start', timestamp: nowIso });
+        this.announceCurrentTaskName();
       }
 
       this.setState('RUNNING');
@@ -253,6 +261,7 @@ export class TimerEngine {
     }
 
     wakeLock.release();
+    speech.cancel();
     this.stopTicker();
     this.notify();
     this.persistState();
@@ -314,6 +323,7 @@ export class TimerEngine {
       currentRun.overtimeSeconds = 0;
       currentRun.status = 'active';
       currentRun.events.push({ type: 'start', timestamp: nowIso });
+      this.announceCurrentTaskName();
     }
 
     this.taskStartedAt = now;
@@ -368,6 +378,7 @@ export class TimerEngine {
     this.setState('RACE_COMPLETED');
     this.stopTicker();
     wakeLock.release();
+    speech.cancel();
 
     if (this.settings.completionSoundEnabled) {
       audio.playRaceComplete();
@@ -408,6 +419,7 @@ export class TimerEngine {
       nextRun.status = 'active';
       nextRun.startedAt = nowIso;
       nextRun.events.push({ type: 'start', timestamp: nowIso });
+      this.announceCurrentTaskName();
     }
 
     if (this.settings.autoStartNext || this.timerState === 'RUNNING') {
@@ -418,6 +430,15 @@ export class TimerEngine {
 
     this.notify();
     this.persistState();
+  }
+
+  private announceCurrentTaskName() {
+    if (!this.settings.soundEnabled || this.settings.ttsTaskNameEnabled === false) return;
+    const currentRun = this.run?.taskRuns[this.currentTaskIndex];
+    const taskName = currentRun?.taskSnapshot?.name;
+    if (taskName) {
+      speech.speak(taskName);
+    }
   }
 
   private findNextEnabledTaskIndex(fromIndex: number): number {

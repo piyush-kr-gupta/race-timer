@@ -3,6 +3,7 @@ import { AppSettings } from '../../types/race';
 import { DataManagementSection } from './DataManagementSection';
 import { DurationInput } from '../editor/DurationInput';
 import { audio } from '../../services/timer/audioService';
+import { speech } from '../../services/timer/speechService';
 import { notifications } from '../../services/timer/notificationService';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import {
@@ -39,6 +40,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [confirmResetSeed, setConfirmResetSeed] = useState(false);
   const [confirmClearApologies, setConfirmClearApologies] = useState(false);
   const [testingAudio, setTestingAudio] = useState(false);
+  const [testingSpeech, setTestingSpeech] = useState(false);
 
   const handleTestAudio = () => {
     setTestingAudio(true);
@@ -50,6 +52,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setTestingAudio(false);
       }, 500);
     }, 400);
+  };
+
+  const handleTestSpeech = () => {
+    setTestingSpeech(true);
+    speech.speak('Problem Understanding & Questioning');
+    setTimeout(() => {
+      setTestingSpeech(false);
+    }, 1500);
   };
 
   const handleToggleNotifications = async () => {
@@ -248,6 +258,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               />
             </div>
           )}
+
+          {/* Announce Task Name (Text-to-Speech) */}
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+            <div>
+              <span className="text-sm font-semibold text-slate-200 block">
+                Announce Task Name (Text-to-Speech)
+              </span>
+              <span className="text-xs text-slate-400">
+                Spells out / speaks the task name aloud when each new task starts (not the race name)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleTestSpeech}
+                disabled={testingSpeech || !settings.soundEnabled || settings.ttsTaskNameEnabled === false}
+                className="text-xs font-semibold px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-cyan-400 rounded-xl transition cursor-pointer min-h-[32px]"
+                title="Test Text-to-Speech announcement"
+              >
+                {testingSpeech ? 'Speaking...' : 'Test Voice'}
+              </button>
+              <input
+                type="checkbox"
+                checked={settings.ttsTaskNameEnabled !== false}
+                onChange={(e) => onUpdateSettings({ ttsTaskNameEnabled: e.target.checked })}
+                className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500 cursor-pointer"
+              />
+            </div>
+          </div>
 
           {/* Warning Thresholds */}
           <div className="pt-2 border-t border-slate-800/80 space-y-2">

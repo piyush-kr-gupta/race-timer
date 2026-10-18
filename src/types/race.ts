@@ -121,6 +121,7 @@ export interface AppSettings {
   soundVolume: number; // 0 to 1
   warningSoundEnabled: boolean;
   completionSoundEnabled: boolean;
+  ttsTaskNameEnabled: boolean; // Announce task name with Text-to-Speech when a new task starts
   browserNotificationsEnabled: boolean;
   warningThresholds: number[]; // seconds e.g. [300, 120, 60, 30]
   countdownWarningThreshold: number; // e.g. 10 or 15 or 0 (disabled), triggers gentle warning every second down to 1s

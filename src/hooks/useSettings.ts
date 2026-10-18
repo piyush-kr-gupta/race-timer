@@ -3,6 +3,7 @@ import { AppSettings } from '../types/race';
 import { storage } from '../services/storage/indexedDb';
 import { DEFAULT_SETTINGS } from '../services/storage/seedData';
 import { audio } from '../services/timer/audioService';
+import { speech } from '../services/timer/speechService';
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -37,6 +38,8 @@ export function useSettings() {
         applyTheme(s.theme);
         audio.setEnabled(s.soundEnabled);
         audio.setVolume(s.soundVolume);
+        speech.setEnabled(s.soundEnabled && s.ttsTaskNameEnabled !== false);
+        speech.setVolume(s.soundVolume);
         setLoading(false);
       }
     });
@@ -69,6 +72,10 @@ export function useSettings() {
     }
     if (partial.soundVolume !== undefined) {
       audio.setVolume(partial.soundVolume);
+      speech.setVolume(partial.soundVolume);
+    }
+    if (partial.soundEnabled !== undefined || partial.ttsTaskNameEnabled !== undefined) {
+      speech.setEnabled(updated.soundEnabled && updated.ttsTaskNameEnabled !== false);
     }
     return updated;
   };

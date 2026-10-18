@@ -6,6 +6,7 @@ import { TaskTimeline } from './TaskTimeline';
 import { SessionTaskManager } from './SessionTaskManager';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { speech } from '../../services/timer/speechService';
 import { BellRing, ArrowLeft, BookmarkCheck } from 'lucide-react';
 
 interface RacePlayerProps {
@@ -62,6 +63,13 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
     message: '',
     action: () => {},
   });
+
+  // Cancel any ongoing speech when exiting player
+  useEffect(() => {
+    return () => {
+      speech.cancel();
+    };
+  }, []);
 
   // Track Fullscreen state
   useEffect(() => {

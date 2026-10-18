@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   soundVolume: 0.8,
   warningSoundEnabled: true,
   completionSoundEnabled: true,
+  ttsTaskNameEnabled: true,
   browserNotificationsEnabled: false,
   warningThresholds: [300, 120, 60, 30],
   countdownWarningThreshold: 10, // gentle warning every second from 10s (or 15s) down to 1s
