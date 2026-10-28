@@ -139,6 +139,8 @@ export interface AppSettings {
   accountabilityCutoffTime: string; // e.g. '21:00' (24-hour HH:MM)
   accountabilityPledgeMessage: string;
   apologyLog: ApologyEntry[];
+  // Habit Tracker
+  habitTrackerStartDate?: string; // e.g. 'YYYY-MM-DD' reference start date
 }
 
 export interface ApologyEntry {
@@ -172,4 +174,45 @@ export interface ImportValidationResult {
   runsCount: number;
   hasSettings: boolean;
   parsedData?: BackupExportData;
+}
+
+// ===================== HABIT TRACKER ANALYTICS =====================
+
+export interface RaceHabitMetric {
+  templateId: string;
+  name: string;
+  category: string;
+  tags: string[];
+  taskCount: number;
+  totalAllocatedSeconds: number;
+  doneDaysCount: number;      // unique calendar days completed
+  daysPassed: number;         // days elapsed since habit tracker start date
+  completionRate: number;     // % consistency (0 - 100)
+  totalRunsCount: number;     // total completed runs in window
+  totalActualSeconds: number; // total time spent in seconds
+  currentStreak: number;      // active streak in days
+  bestStreak: number;         // all-time best streak in days
+  isDoneToday: boolean;       // completed or marked done today
+  recent7Days: { dateKey: string; completed: boolean }[];
+  lastCompletedDate?: string;
+  isArchived: boolean;
+}
+
+export interface DailyHabitActivity {
+  dateKey: string;            // 'YYYY-MM-DD'
+  completedRacesCount: number;
+  totalRunsCount: number;
+  totalSeconds: number;
+  raceNames: string[];
+}
+
+export interface HabitTrackerSummary {
+  totalRaces: number;
+  activeRaces: number;
+  overallConsistencyRate: number;
+  maxCurrentStreak: number;
+  bestHistoricalStreak: number;
+  totalRunsCompleted: number;
+  totalFocusSeconds: number;
+  racesDoneTodayCount: number;
 }

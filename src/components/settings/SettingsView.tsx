@@ -18,9 +18,11 @@ import {
   Keyboard,
   ShieldAlert,
   Flame,
+  Activity,
 } from 'lucide-react';
 import { DEFAULT_PLEDGE_MESSAGE } from '../../services/storage/seedData';
-import { formatCutoffTimeDisplay } from '../../utils/dateUtils';
+import { formatCutoffTimeDisplay, getLocalDateKey } from '../../utils/dateUtils';
+import { calculateDaysPassed, addDaysToDateKey } from '../../utils/habitAnalytics';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -28,6 +30,7 @@ interface SettingsViewProps {
   onResetSeedData: () => Promise<{ added: number; updated: number }>;
   onRefreshData: () => void;
   onShowToast: (msg: string, undo?: () => void) => void;
+  onNavigateToHabits?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -36,6 +39,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onResetSeedData,
   onRefreshData,
   onShowToast,
+  onNavigateToHabits,
 }) => {
   const [confirmResetSeed, setConfirmResetSeed] = useState(false);
   const [confirmClearApologies, setConfirmClearApologies] = useState(false);
@@ -457,6 +461,117 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex justify-between p-2 rounded-xl bg-slate-950/60">
             <span>Exit Focus Mode / Dialog</span>
             <kbd className="font-mono text-orange-400 font-bold">Esc</kbd>
+          </div>
+        </div>
+      </div>
+
+      {/* HABIT TRACKER CONFIGURATION */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400">
+              <Activity className="w-5 h-5 text-orange-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <span>Habit Tracker Configuration</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Configure the reference start date from which consistency ratios (done / days passed), continuous streaks, and activity analytics are calculated.
+              </p>
+            </div>
+          </div>
+
+          {onNavigateToHabits && (
+            <button
+              type="button"
+              onClick={onNavigateToHabits}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition shadow-md shadow-orange-500/20 cursor-pointer self-start sm:self-center"
+            >
+              <span>Go to Habit Tracker</span>
+              <span>→</span>
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-4 pt-1">
+          {/* Tracking Start Date Input */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <span className="text-sm font-semibold text-slate-200 block">Analytics Start Date</span>
+              <span className="text-xs text-slate-400">
+                Tracking history, heatmap, and consistency ratios begin on this calendar date.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                aria-label="Habit Tracker Start Date"
+                value={settings.habitTrackerStartDate || '2026-10-01'}
+                onChange={(e) => onUpdateSettings({ habitTrackerStartDate: e.target.value })}
+                className="bg-slate-950 border border-slate-700 focus:border-orange-500 rounded-xl px-3 py-1.5 text-sm font-mono text-slate-200 outline-none w-44 text-center cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+            <span className="text-xs font-semibold text-slate-400 mr-1">Quick Presets:</span>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                onUpdateSettings({ habitTrackerStartDate: monthStart });
+                onShowToast(`Habit tracker start date set to start of month (${monthStart})`);
+              }}
+              className="px-2.5 py-1 text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition cursor-pointer"
+            >
+              Start of Month
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const thirtyDaysAgo = addDaysToDateKey(getLocalDateKey(), -30);
+                onUpdateSettings({ habitTrackerStartDate: thirtyDaysAgo });
+                onShowToast(`Habit tracker start date set to 30 days ago (${thirtyDaysAgo})`);
+              }}
+              className="px-2.5 py-1 text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition cursor-pointer"
+            >
+              Last 30 Days
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onUpdateSettings({ habitTrackerStartDate: '2026-09-01' });
+                onShowToast('Habit tracker start date set to first sample run (2026-09-01)');
+              }}
+              className="px-2.5 py-1 text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition cursor-pointer"
+            >
+              Since First Seed Run
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const today = getLocalDateKey();
+                onUpdateSettings({ habitTrackerStartDate: today });
+                onShowToast(`Habit tracker start date reset to Today (${today})`);
+              }}
+              className="px-2.5 py-1 text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-800 transition cursor-pointer"
+            >
+              Today (Fresh Start)
+            </button>
+          </div>
+
+          {/* Current Days Elapsed Live Badge */}
+          <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-400">Current Tracking Window</span>
+            <span className="font-semibold text-slate-200">
+              <strong className="text-orange-400">
+                {calculateDaysPassed(settings.habitTrackerStartDate || '2026-10-01', getLocalDateKey())}
+              </strong>{' '}
+              days elapsed (inclusive of today)
+            </span>
           </div>
         </div>
       </div>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Timer, History, Settings, Plus, Keyboard, Sun, Moon, Monitor, Download } from 'lucide-react';
+import { Timer, History, Settings, Plus, Keyboard, Sun, Moon, Monitor, Download, Activity } from 'lucide-react';
 import { AppSettings } from '../../types/race';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'history' | 'settings';
-  onSelectTab: (tab: 'dashboard' | 'history' | 'settings') => void;
+  currentTab: 'dashboard' | 'habits' | 'history' | 'settings';
+  onSelectTab: (tab: 'dashboard' | 'habits' | 'history' | 'settings') => void;
   onQuickStart: () => void;
   onOpenShortcuts: () => void;
   isRaceActive: boolean;
@@ -97,6 +97,17 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Timer className="w-4 h-4" />
             <span>Races</span>
+          </button>
+          <button
+            onClick={() => onSelectTab('habits')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer min-h-[36px] ${
+              currentTab === 'habits'
+                ? 'bg-orange-500 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>Habits</span>
           </button>
           <button
             onClick={() => onSelectTab('history')}

@@ -15,6 +15,7 @@ import { InterruptionModal } from './components/player/InterruptionModal';
 import { RaceResults } from './components/results/RaceResults';
 import { RaceHistoryView } from './components/history/RaceHistoryView';
 import { SettingsView } from './components/settings/SettingsView';
+import { HabitTrackerDashboard } from './components/habits/HabitTrackerDashboard';
 import { AccountabilityModal } from './components/common/AccountabilityModal';
 import { RaceTemplate, RaceRun, ActiveRunRuntimeState, ApologyEntry } from './types/race';
 import { storage, isRunFullyCompleted } from './services/storage/indexedDb';
@@ -72,7 +73,7 @@ export function App() {
   });
 
   // Navigation State
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'history' | 'settings'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'habits' | 'history' | 'settings'>('dashboard');
   const [activeView, setActiveView] = useState<'main' | 'editor' | 'player' | 'results'>('main');
 
   // Modals & Sub-states
@@ -409,6 +410,21 @@ export function App() {
               />
             )}
 
+            {currentTab === 'habits' && (
+              <HabitTrackerDashboard
+                templates={templates}
+                runs={runs}
+                settings={settings}
+                onStartRace={handleStartRace}
+                onToggleDoneToday={toggleDoneToday}
+                onNavigateToSettings={() => {
+                  setCurrentTab('settings');
+                  setActiveView('main');
+                }}
+                onUpdateSettings={updateSettings}
+              />
+            )}
+
             {currentTab === 'history' && (
               <RaceHistoryView
                 runs={runs}
@@ -445,6 +461,10 @@ export function App() {
                 onResetSeedData={resetSeedData}
                 onRefreshData={refresh}
                 onShowToast={addToast}
+                onNavigateToHabits={() => {
+                  setCurrentTab('habits');
+                  setActiveView('main');
+                }}
               />
             )}
           </>

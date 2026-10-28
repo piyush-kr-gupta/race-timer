@@ -95,4 +95,35 @@ describe('SettingsView Accountability Section', () => {
     fireEvent.click(testVoiceBtn);
     expect(speakSpy).toHaveBeenCalledWith('Problem Understanding & Questioning');
   });
+
+  it('renders Habit Tracker Configuration and allows changing start date', () => {
+    const handleUpdateSettings = vi.fn();
+
+    render(
+      <SettingsView
+        settings={{
+          ...DEFAULT_SETTINGS,
+          habitTrackerStartDate: '2026-10-01',
+        }}
+        onUpdateSettings={handleUpdateSettings}
+        onResetSeedData={vi.fn().mockResolvedValue({ added: 0, updated: 0 })}
+        onRefreshData={vi.fn()}
+        onShowToast={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Habit Tracker Configuration')).toBeInTheDocument();
+    expect(screen.getByText('Analytics Start Date')).toBeInTheDocument();
+
+    const dateInput = screen.getByLabelText('Habit Tracker Start Date');
+    expect(dateInput).toHaveValue('2026-10-01');
+
+    fireEvent.change(dateInput, { target: { value: '2026-10-15' } });
+    expect(handleUpdateSettings).toHaveBeenCalledWith({ habitTrackerStartDate: '2026-10-15' });
+
+    // Test quick preset buttons
+    const monthPresetBtn = screen.getByRole('button', { name: /start of month/i });
+    fireEvent.click(monthPresetBtn);
+    expect(handleUpdateSettings).toHaveBeenCalled();
+  });
 });
