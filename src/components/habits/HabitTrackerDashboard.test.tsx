@@ -229,4 +229,29 @@ describe('HabitTrackerDashboard', () => {
       screen.getByText(/Hover over any trend bar or activity heatmap square to inspect stats/i)
     ).toBeInTheDocument();
   });
+
+  it('renders today square in activity heatmap with full ring clearance and elevation classes', () => {
+    const { container } = render(
+      <HabitTrackerDashboard
+        templates={mockTemplates}
+        runs={mockRuns}
+        settings={mockSettings}
+        onStartRace={vi.fn()}
+        onToggleDoneToday={vi.fn()}
+      />
+    );
+
+    // Verify heatmap scroll container has all-around padding (p-2) to avoid clipping
+    const heatmapScrollContainer = container.querySelector('.overflow-x-auto.p-2');
+    expect(heatmapScrollContainer).toBeInTheDocument();
+
+    // Verify today's button has relative z-10 and ring styling without clipping
+    const todayButton = container.querySelector('button.ring-amber-400');
+    expect(todayButton).toBeInTheDocument();
+    expect(todayButton).toHaveClass('relative');
+    expect(todayButton).toHaveClass('z-10');
+    expect(todayButton).toHaveClass('ring-2');
+    expect(todayButton).toHaveClass('ring-offset-2');
+    expect(todayButton).toHaveClass('ring-offset-slate-900');
+  });
 });

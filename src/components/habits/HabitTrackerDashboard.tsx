@@ -525,7 +525,7 @@ export const HabitTrackerDashboard: React.FC<HabitTrackerDashboardProps> = ({
         </div>
 
         {/* Heatmap Grid */}
-        <div className="overflow-x-auto pb-2">
+        <div className="overflow-x-auto p-2">
           <div className="flex flex-wrap gap-1.5 min-w-[500px]">
             {allDailyActivities.map((day) => {
               const count = day.completedRacesCount;
@@ -545,7 +545,7 @@ export const HabitTrackerDashboard: React.FC<HabitTrackerDashboardProps> = ({
                     day.totalSeconds
                   )})`}
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center text-[10px] transition-all cursor-pointer hover:scale-110 ${bg} ${
-                    isToday ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-950' : ''
+                    isToday ? 'relative z-10 ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-900' : ''
                   }`}
                 >
                   {count > 0 ? count : ''}
