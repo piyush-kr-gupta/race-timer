@@ -165,4 +165,68 @@ describe('HabitTrackerDashboard', () => {
     expect(screen.getByText('HIIT Morning Routine')).toBeInTheDocument();
     expect(screen.queryByText('Google L5 Coding Practice')).not.toBeInTheDocument();
   });
+
+  it('renders persistent inspection guidance prompt in idle state', () => {
+    render(
+      <HabitTrackerDashboard
+        templates={mockTemplates}
+        runs={mockRuns}
+        settings={mockSettings}
+        onStartRace={vi.fn()}
+        onToggleDoneToday={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText(/Hover over any trend bar or activity heatmap square to inspect stats/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText('Interactive Preview')).toBeInTheDocument();
+  });
+
+  it('shows day details when hovering over a day and restores prompt on mouse leave', () => {
+    render(
+      <HabitTrackerDashboard
+        templates={mockTemplates}
+        runs={mockRuns}
+        settings={mockSettings}
+        onStartRace={vi.fn()}
+        onToggleDoneToday={vi.fn()}
+      />
+    );
+
+    // Initial idle state
+    expect(
+      screen.getByText(/Hover over any trend bar or activity heatmap square to inspect stats/i)
+    ).toBeInTheDocument();
+
+    // Heatmap button for run date (2026-10-22)
+    const dayButton = screen.getByTitle(/2026-10-22: 1 race\(s\) completed/i);
+    expect(dayButton).toBeInTheDocument();
+
+    // Mouse enter on heatmap day button
+    fireEvent.mouseEnter(dayButton);
+
+    // Idle message should be replaced by day stats
+    expect(
+      screen.queryByText(/Hover over any trend bar or activity heatmap square to inspect stats/i)
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('2026-10-22')).toBeInTheDocument();
+    expect(screen.getByText(/Completed: Google L5 Coding Practice/i)).toBeInTheDocument();
+    expect(screen.getByText(/• Click for details/i)).toBeInTheDocument();
+
+    // Clicking the preview card opens the detailed modal
+    const previewCard = screen.getByRole('button', { name: /2026-10-22/i });
+    fireEvent.click(previewCard);
+    expect(screen.getByText('Activity on 2026-10-22')).toBeInTheDocument();
+
+    // Close modal
+    fireEvent.click(screen.getByRole('button', { name: '✕' }));
+    expect(screen.queryByText('Activity on 2026-10-22')).not.toBeInTheDocument();
+
+    // Mouse leave restores idle state
+    fireEvent.mouseLeave(dayButton);
+    expect(
+      screen.getByText(/Hover over any trend bar or activity heatmap square to inspect stats/i)
+    ).toBeInTheDocument();
+  });
 });

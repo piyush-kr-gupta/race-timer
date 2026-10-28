@@ -27,6 +27,7 @@ import {
   Settings as SettingsIcon,
   BarChart3,
   CalendarCheck,
+  MousePointerClick,
 } from 'lucide-react';
 
 interface HabitTrackerDashboardProps {
@@ -429,37 +430,73 @@ export const HabitTrackerDashboard: React.FC<HabitTrackerDashboardProps> = ({
             </div>
           )}
 
-          {/* Interactive Floating Tooltip */}
-          {hoveredDay && (
-            <div className="mt-2 p-3 bg-slate-950/95 border border-slate-700/80 rounded-xl shadow-xl flex items-center justify-between text-xs transition animate-in fade-in">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
-                  {hoveredDay.completedRacesCount}
-                </div>
-                <div>
-                  <div className="font-bold text-slate-100 flex items-center gap-2">
-                    <span>{hoveredDay.dateKey}</span>
-                    {hoveredDay.dateKey === todayKey && (
-                      <span className="px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 rounded font-semibold">
-                        Today
+          {/* Interactive Inspection Card (Always Visible) */}
+          <div
+            className={`mt-2 p-3 rounded-xl border transition-all duration-200 min-h-[58px] flex items-center justify-between text-xs ${
+              hoveredDay
+                ? 'bg-slate-950/95 border-slate-700/80 shadow-lg cursor-pointer hover:border-orange-500/50'
+                : 'bg-slate-950/40 border-dashed border-slate-800 text-slate-400'
+            }`}
+            onClick={() => {
+              if (hoveredDay) setSelectedDayDetail(hoveredDay);
+            }}
+            role={hoveredDay ? 'button' : undefined}
+            tabIndex={hoveredDay ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (hoveredDay && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                setSelectedDayDetail(hoveredDay);
+              }
+            }}
+          >
+            {hoveredDay ? (
+              <>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 shrink-0 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
+                    {hoveredDay.completedRacesCount}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-100 flex items-center gap-2 flex-wrap">
+                      <span>{hoveredDay.dateKey}</span>
+                      {hoveredDay.dateKey === todayKey && (
+                        <span className="px-1.5 py-0.5 text-[10px] bg-amber-500/20 text-amber-300 rounded font-semibold">
+                          Today
+                        </span>
+                      )}
+                      <span className="text-[10px] text-slate-500 font-normal">
+                        • Click for details
                       </span>
-                    )}
-                  </div>
-                  <div className="text-slate-400 text-[11px] mt-0.5">
-                    {hoveredDay.completedRacesCount === 0
-                      ? 'No races completed on this day.'
-                      : `Completed: ${hoveredDay.raceNames.join(', ')}`}
+                    </div>
+                    <div className="text-slate-400 text-[11px] mt-0.5 truncate max-w-[280px] sm:max-w-md">
+                      {hoveredDay.completedRacesCount === 0
+                        ? 'No races completed on this day.'
+                        : `Completed: ${hoveredDay.raceNames.join(', ')}`}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <span className="font-bold text-slate-200">
-                  {formatDurationHuman(hoveredDay.totalSeconds)}
+                <div className="text-right shrink-0 pl-3">
+                  <span className="font-bold text-slate-200">
+                    {formatDurationHuman(hoveredDay.totalSeconds)}
+                  </span>
+                  <div className="text-[10px] text-slate-500">
+                    {hoveredDay.totalRunsCount} total {hoveredDay.totalRunsCount === 1 ? 'run' : 'runs'}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-between w-full gap-2">
+                <div className="flex items-center gap-2.5 text-slate-400 text-xs">
+                  <MousePointerClick className="w-4 h-4 text-orange-400/80 shrink-0" />
+                  <span>
+                    Hover over any trend bar or activity heatmap square to inspect stats • Click for detailed breakdown
+                  </span>
+                </div>
+                <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-medium bg-slate-900 text-slate-500 border border-slate-800 rounded-md shrink-0">
+                  Interactive Preview
                 </span>
-                <div className="text-[10px] text-slate-500">{hoveredDay.totalRunsCount} total runs</div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
