@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: 'pages'
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -43,7 +43,7 @@ jobs:
 
       - name: Build application
         env:
-          BASE_URL: ${{ steps.pages.outputs.base_path }}/
+          BASE_URL: ${{ steps.pages.outputs.base_path }}
         run: npm run build
 
       - name: Create 404.html fallback

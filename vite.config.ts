@@ -4,9 +4,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const getBasePath = () => {
+  const envBase = process.env.BASE_URL || (process.env.GITHUB_ACTIONS ? '/race-timer/' : '/');
+  return envBase.endsWith('/') ? envBase : `${envBase}/`;
+};
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.BASE_URL ?? (process.env.GITHUB_ACTIONS ? '/race-timer/' : '/'),
+  base: getBasePath(),
   plugins: [
     react(),
     tailwindcss(),
