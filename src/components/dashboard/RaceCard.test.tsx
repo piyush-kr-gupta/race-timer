@@ -90,7 +90,7 @@ describe('RaceCard - Indexing & Reordering', () => {
     expect(handleMoveUp).toHaveBeenCalledWith('template-3');
   });
 
-  it('calls onOpenChangeIndex when index badge or change index action is clicked', () => {
+  it('calls onOpenChangeIndex when index badge is clicked and does not render sorting button at bottom', () => {
     const handleOpenIndex = vi.fn();
 
     render(
@@ -104,8 +104,7 @@ describe('RaceCard - Indexing & Reordering', () => {
     fireEvent.click(badge);
     expect(handleOpenIndex).toHaveBeenCalledWith(mockTemplate);
 
-    const actionBtn = screen.getByLabelText('Change race index');
-    fireEvent.click(actionBtn);
-    expect(handleOpenIndex).toHaveBeenCalledTimes(2);
+    // Verify sorting button is removed from bottom of card
+    expect(screen.queryByLabelText('Change race index')).toBeNull();
   });
 });

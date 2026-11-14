@@ -230,16 +230,6 @@ export const RaceCard: React.FC<RaceCardProps> = ({
               <CheckCircle className="w-4 h-4" />
             </button>
           )}
-          {onOpenChangeIndex && (
-            <button
-              onClick={() => onOpenChangeIndex(template)}
-              className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
-              title="Change race index / order"
-              aria-label="Change race index"
-            >
-              <ArrowUpDown className="w-4 h-4" />
-            </button>
-          )}
           <button
             onClick={() => onEdit(template)}
             className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
