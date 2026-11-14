@@ -261,7 +261,7 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Google L5 Mock Interview"
+              placeholder="e.g. Morning Routine, Deep Work Block, Home Workout"
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base font-bold text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
             />
           </div>

@@ -46,7 +46,7 @@ describe('Import and Export Services', () => {
 
   it('exports templates to CSV and round-trips via parseTemplatesCsv', () => {
     const csv = templatesToCsv(SEED_TEMPLATES);
-    expect(csv).toContain('Google L5');
+    expect(csv).toContain(SEED_TEMPLATES[0].name);
     expect(csv).toContain('Race ID,Race Name');
 
     const parsed = importService.parseTemplatesCsv(csv);
@@ -58,6 +58,6 @@ describe('Import and Export Services', () => {
   it('exports runs to CSV properly', () => {
     const csv = runsToCsv(SEED_RUNS);
     expect(csv).toContain('run-seed-sample-1');
-    expect(csv).toContain('Google L5');
+    expect(csv).toContain(SEED_TEMPLATES[0].name);
   });
 });

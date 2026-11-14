@@ -695,7 +695,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <ConfirmDialog
         isOpen={confirmResetSeed}
         title="Reset Seed Data Templates?"
-        message="This will reload the official seed templates (Google L5 Interview, System Design, Pomodoro, 90m Deep Work, HIIT Workout) and sample runs. All your custom created races will remain untouched."
+        message="This will reload the official seed templates (Morning Routine, Focused Productivity, Home Workout, Mindful Reading, Evening Wind-Down) and sample runs. All your custom created races will remain untouched."
         confirmText="Reset Seed Data"
         onConfirm={handleConfirmResetSeed}
         onCancel={() => setConfirmResetSeed(false)}

@@ -27,8 +27,8 @@ describe('Race Workflow and Snapshot Integrity', () => {
     originalTemplate.tasks[0].durationSeconds = 99999;
 
     // Run snapshot must remain completely unaffected
-    expect(run.templateSnapshot.name).toBe('Google L5 Coding & Algorithms Practice');
-    expect(run.templateSnapshot.tasks[0].durationSeconds).toBe(300);
+    expect(run.templateSnapshot.name).toBe(SEED_TEMPLATES[0].name);
+    expect(run.templateSnapshot.tasks[0].durationSeconds).toBe(SEED_TEMPLATES[0].tasks[0].durationSeconds);
   });
 
   it('accurately tracks full race progression across multiple tasks and calculates time variances', () => {
