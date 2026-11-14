@@ -133,9 +133,21 @@ export class StorageService {
       const store = tx.objectStore(STORES.TEMPLATES);
       const request = store.getAll();
       request.onsuccess = () => {
-        const templates = (request.result as RaceTemplate[]) || [];
-        // Sort most recently updated first
-        templates.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        let templates = (request.result as RaceTemplate[]) || [];
+        // Sort primarily by order if present, fallback to createdAt or updatedAt
+        templates.sort((a, b) => {
+          if (typeof a.order === 'number' && typeof b.order === 'number') {
+            return a.order - b.order;
+          }
+          if (typeof a.order === 'number') return -1;
+          if (typeof b.order === 'number') return 1;
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+        // Ensure every template has an order index
+        templates = templates.map((t, idx) => ({
+          ...t,
+          order: typeof t.order === 'number' ? t.order : idx,
+        }));
         resolve(templates);
       };
       request.onerror = () => reject(request.error);
@@ -155,8 +167,16 @@ export class StorageService {
 
   async saveTemplate(template: RaceTemplate): Promise<RaceTemplate> {
     const db = await this.getDB();
+    let orderToSet = template.order;
+    if (typeof orderToSet !== 'number') {
+      const all = await this.getAllTemplates();
+      const existing = all.find((t) => t.id === template.id);
+      orderToSet = existing && typeof existing.order === 'number' ? existing.order : all.length;
+    }
+
     const updated: RaceTemplate = {
       ...template,
+      order: orderToSet,
       updatedAt: new Date().toISOString(),
     };
 
@@ -169,26 +189,83 @@ export class StorageService {
     });
   }
 
+  async reorderTemplates(orderedIds: string[]): Promise<RaceTemplate[]> {
+    const db = await this.getDB();
+    const all = await this.getAllTemplates();
+    const map = new Map(all.map((t) => [t.id, t]));
+
+    const reordered: RaceTemplate[] = [];
+    const seen = new Set<string>();
+
+    orderedIds.forEach((id, idx) => {
+      const item = map.get(id);
+      if (item) {
+        reordered.push({ ...item, order: idx });
+        seen.add(id);
+      }
+    });
+
+    // Append any items that were not in orderedIds
+    all.forEach((item) => {
+      if (!seen.has(item.id)) {
+        reordered.push({ ...item, order: reordered.length });
+      }
+    });
+
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.TEMPLATES, 'readwrite');
+      const store = tx.objectStore(STORES.TEMPLATES);
+      for (const t of reordered) {
+        store.put(t);
+      }
+      tx.oncomplete = () => resolve(reordered);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async updateTemplateOrder(templateId: string, new1BasedIndex: number): Promise<RaceTemplate[]> {
+    const all = await this.getAllTemplates();
+    const index = all.findIndex((t) => t.id === templateId);
+    if (index === -1) return all;
+
+    const targetIndex0Based = Math.max(0, Math.min(all.length - 1, new1BasedIndex - 1));
+    if (index === targetIndex0Based) return all;
+
+    const [moved] = all.splice(index, 1);
+    all.splice(targetIndex0Based, 0, moved);
+
+    return this.reorderTemplates(all.map((t) => t.id));
+  }
+
   async deleteTemplate(id: string): Promise<void> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORES.TEMPLATES, 'readwrite');
       const store = tx.objectStore(STORES.TEMPLATES);
       const request = store.delete(id);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+
+    // Re-normalize orders of remaining templates
+    const remaining = await this.getAllTemplates();
+    await this.reorderTemplates(remaining.map((t) => t.id));
   }
 
   async duplicateTemplate(id: string): Promise<RaceTemplate> {
     const original = await this.getTemplateById(id);
     if (!original) throw new Error(`Race template with id "${id}" not found.`);
 
+    const all = await this.getAllTemplates();
+    const originalIndex = all.findIndex((t) => t.id === id);
+    const targetOrder = originalIndex >= 0 ? (original.order ?? originalIndex) + 1 : all.length;
+
     const now = new Date().toISOString();
     const duplicate: RaceTemplate = {
       ...original,
       id: `race-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       name: `${original.name} (Copy)`,
+      order: targetOrder,
       createdAt: now,
       updatedAt: now,
       isSample: false,
@@ -198,7 +275,15 @@ export class StorageService {
       })),
     };
 
-    await this.saveTemplate(duplicate);
+    // Insert duplicate right after original in list and re-normalize orders
+    const nextList = [...all];
+    if (originalIndex >= 0) {
+      nextList.splice(originalIndex + 1, 0, duplicate);
+    } else {
+      nextList.push(duplicate);
+    }
+
+    await this.reorderTemplates(nextList.map((t) => t.id));
     return duplicate;
   }
 

@@ -63,6 +63,7 @@ export class ImportService {
             category: item.category ? String(item.category) : 'General',
             tags: Array.isArray(item.tags) ? item.tags.map(String) : [],
             tasks,
+            order: typeof item.order === 'number' ? item.order : i,
             createdAt: item.createdAt || new Date().toISOString(),
             updatedAt: item.updatedAt || new Date().toISOString(),
             isArchived: Boolean(item.isArchived),
@@ -217,6 +218,7 @@ export class ImportService {
 
     const headers = rows[0].map((h) => h.trim().toLowerCase());
     const nameIdx = headers.findIndex((h) => h.includes('name'));
+    const orderIdx = headers.findIndex((h) => h.includes('order'));
     const catIdx = headers.findIndex((h) => h.includes('category'));
     const descIdx = headers.findIndex((h) => h.includes('description'));
     const tasksIdx = headers.findIndex((h) => h.includes('tasks'));
@@ -263,6 +265,9 @@ export class ImportService {
         });
       }
 
+      const parsedOrder = orderIdx !== -1 && row[orderIdx] ? parseInt(row[orderIdx], 10) - 1 : i - 1;
+      const validOrder = isNaN(parsedOrder) ? i - 1 : parsedOrder;
+
       templates.push({
         id: `race-${Date.now()}-${i}`,
         name,
@@ -270,6 +275,7 @@ export class ImportService {
         tags: [],
         description: descIdx !== -1 && row[descIdx] ? row[descIdx].trim() : '',
         tasks,
+        order: validOrder,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isSample: false,

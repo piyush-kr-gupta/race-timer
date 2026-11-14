@@ -385,7 +385,7 @@ describe('RaceDashboard - In-Progress & Saved Races Total Time Remaining', () =>
       localStorage.clear();
     });
 
-    it('defaults to "updated" sort when no prop or localStorage is set', () => {
+    it('defaults to "index" sort when no prop or localStorage is set', () => {
       render(
         <RaceDashboard
           {...defaultProps}
@@ -394,13 +394,13 @@ describe('RaceDashboard - In-Progress & Saved Races Total Time Remaining', () =>
       );
 
       const sortSelect = screen.getByLabelText('Sort races by');
-      expect(sortSelect).toHaveValue('updated');
+      expect(sortSelect).toHaveValue('index');
 
-      // Most recently updated (templateB, Oct 2) appears before templateA (Oct 1)
+      // Sorted by index: Alpha (order: undefined -> 0) before Beta (order: undefined -> 1)
       const cards = screen.getAllByRole('heading', { level: 3 });
       const cardTitles = cards.map((c) => c.textContent);
-      expect(cardTitles[0]).toBe('Beta Routine');
-      expect(cardTitles[1]).toBe('Alpha Routine');
+      expect(cardTitles[0]).toBe('Alpha Routine');
+      expect(cardTitles[1]).toBe('Beta Routine');
     });
 
     it('initializes from sortBy prop when provided', () => {
@@ -451,7 +451,7 @@ describe('RaceDashboard - In-Progress & Saved Races Total Time Remaining', () =>
         />
       );
 
-      const sortSelect = screen.getByDisplayValue('Recently Updated');
+      const sortSelect = screen.getByLabelText('Sort races by');
       fireEvent.change(sortSelect, { target: { value: 'duration-asc' } });
 
       // Calls callback with new sort

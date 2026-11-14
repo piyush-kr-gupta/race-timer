@@ -1,10 +1,25 @@
 import { ActiveRunRuntimeState, RaceTemplate, RaceRun } from '../../types/race';
 import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { formatDurationHuman } from '../../utils/duration';
-import { Play, Edit3, Copy, Trash2, Archive, ArchiveRestore, Clock, CheckCircle, RotateCcw } from 'lucide-react';
+import {
+  Play,
+  Edit3,
+  Copy,
+  Trash2,
+  Archive,
+  ArchiveRestore,
+  Clock,
+  CheckCircle,
+  RotateCcw,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
 
 interface RaceCardProps {
   template: RaceTemplate;
+  displayIndex?: number;
+  totalTemplates?: number;
   lastRun?: RaceRun;
   savedRun?: ActiveRunRuntimeState;
   isDoneToday?: boolean;
@@ -15,10 +30,15 @@ interface RaceCardProps {
   onToggleArchive: (templateId: string) => void;
   onDelete: (templateId: string, name: string) => void;
   onToggleDoneToday?: (templateId: string) => void;
+  onOpenChangeIndex?: (template: RaceTemplate) => void;
+  onMoveUp?: (templateId: string) => void;
+  onMoveDown?: (templateId: string) => void;
 }
 
 export const RaceCard: React.FC<RaceCardProps> = ({
   template,
+  displayIndex,
+  totalTemplates,
   lastRun,
   savedRun,
   isDoneToday = false,
@@ -29,9 +49,14 @@ export const RaceCard: React.FC<RaceCardProps> = ({
   onToggleArchive,
   onDelete,
   onToggleDoneToday,
+  onOpenChangeIndex,
+  onMoveUp,
+  onMoveDown,
 }) => {
   const enabledTasks = template.tasks.filter((t) => t.enabled);
   const totalSeconds = enabledTasks.reduce((sum, t) => sum + t.durationSeconds, 0);
+
+  const index = typeof template.order === 'number' ? template.order + 1 : (displayIndex ?? 1);
 
   // Only consider savedRun active if it's not fully completed
   const activeSavedRun = savedRun && !isRunFullyCompleted(savedRun) ? savedRun : undefined;
@@ -41,9 +66,54 @@ export const RaceCard: React.FC<RaceCardProps> = ({
       <div>
         {/* Header Badges */}
         <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
-          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">
-            {template.category || 'General'}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Index Badge & Quick Nudge */}
+            <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-xl px-1.5 py-0.5">
+              <button
+                type="button"
+                onClick={() => onOpenChangeIndex?.(template)}
+                className="flex items-center gap-1 text-xs font-mono font-black text-orange-400 hover:text-orange-300 transition cursor-pointer px-1 py-0.5 rounded-lg hover:bg-orange-500/10"
+                title="Click to change race index / sequence"
+                aria-label={`Race index ${index}, click to change`}
+              >
+                <span>#{index}</span>
+                <ArrowUpDown className="w-3 h-3 opacity-60" />
+              </button>
+              {(onMoveUp || onMoveDown) && (
+                <div className="flex items-center border-l border-slate-800 pl-0.5 ml-0.5">
+                  {onMoveUp && (
+                    <button
+                      type="button"
+                      onClick={() => onMoveUp(template.id)}
+                      disabled={index <= 1}
+                      className="p-0.5 text-slate-400 hover:text-white disabled:opacity-20 disabled:pointer-events-none hover:bg-slate-800 rounded transition cursor-pointer"
+                      title="Move race up"
+                      aria-label="Move race up"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {onMoveDown && (
+                    <button
+                      type="button"
+                      onClick={() => onMoveDown(template.id)}
+                      disabled={totalTemplates ? index >= totalTemplates : false}
+                      className="p-0.5 text-slate-400 hover:text-white disabled:opacity-20 disabled:pointer-events-none hover:bg-slate-800 rounded transition cursor-pointer"
+                      title="Move race down"
+                      aria-label="Move race down"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">
+              {template.category || 'General'}
+            </span>
+          </div>
+
           <div className="flex items-center gap-1.5 flex-wrap">
             {activeSavedRun && (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 animate-pulse">
@@ -158,6 +228,16 @@ export const RaceCard: React.FC<RaceCardProps> = ({
               aria-label={isDoneToday ? 'Move back to Active' : 'Mark as Done for Today'}
             >
               <CheckCircle className="w-4 h-4" />
+            </button>
+          )}
+          {onOpenChangeIndex && (
+            <button
+              onClick={() => onOpenChangeIndex(template)}
+              className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-800 rounded-lg transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+              title="Change race index / order"
+              aria-label="Change race index"
+            >
+              <ArrowUpDown className="w-4 h-4" />
             </button>
           )}
           <button

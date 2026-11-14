@@ -3,6 +3,7 @@ import { RaceTemplate, RaceRun, ActiveRunRuntimeState, RaceSortOption } from '..
 import { TimerTickData } from '../../services/timer/timerEngine';
 import { isRunFullyCompleted } from '../../services/storage/indexedDb';
 import { RaceCard } from './RaceCard';
+import { ChangeRaceIndexModal } from './ChangeRaceIndexModal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { formatTime, formatDurationHuman } from '../../utils/duration';
 import { isTemplateDoneToday } from '../../utils/dateUtils';
@@ -59,6 +60,8 @@ interface RaceDashboardProps {
   onToggleArchive: (templateId: string) => void;
   onDeleteRace: (templateId: string, name: string) => void;
   onToggleDoneToday?: (templateId: string, isCurrentlyDone: boolean) => void;
+  onUpdateTemplateOrder?: (templateId: string, new1BasedIndex: number) => void;
+  onMoveTemplate?: (templateId: string, direction: 'up' | 'down') => void;
 }
 
 export const RaceDashboard: React.FC<RaceDashboardProps> = ({
@@ -81,21 +84,24 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
   onToggleArchive,
   onDeleteRace,
   onToggleDoneToday,
+  onUpdateTemplateOrder,
+  onMoveTemplate,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'active' | 'done-today' | 'archived'>('active');
+  const [indexModalTarget, setIndexModalTarget] = useState<RaceTemplate | null>(null);
   const [sortBy, setSortBy] = useState<RaceSortOption>(() => {
     if (propSortBy) return propSortBy;
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const saved = window.localStorage.getItem(DASHBOARD_SORT_STORAGE_KEY);
-        if (saved === 'updated' || saved === 'name' || saved === 'duration-desc' || saved === 'duration-asc') {
+        if (saved === 'index' || saved === 'updated' || saved === 'name' || saved === 'duration-desc' || saved === 'duration-asc') {
           return saved as RaceSortOption;
         }
       }
     } catch {}
-    return 'updated';
+    return 'index';
   });
 
   // Keep state in sync if prop changes from external settings
@@ -211,6 +217,9 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
         return true;
       })
       .sort((a, b) => {
+        if (sortBy === 'index') {
+          return (a.order ?? 0) - (b.order ?? 0);
+        }
         if (sortBy === 'name') {
           return a.name.localeCompare(b.name);
         }
@@ -456,6 +465,7 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
               onChange={(e) => handleSortChange(e.target.value as RaceSortOption)}
               className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px] cursor-pointer"
             >
+              <option value="index">Index / Custom Order</option>
               <option value="updated">Recently Updated</option>
               <option value="name">Name (A-Z)</option>
               <option value="duration-desc">Duration (Longest)</option>
@@ -560,10 +570,12 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
       {/* Race Cards Grid */}
       {filteredTemplates.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTemplates.map((template) => (
+          {filteredTemplates.map((template, idx) => (
             <RaceCard
               key={template.id}
               template={template}
+              displayIndex={typeof template.order === 'number' ? template.order + 1 : idx + 1}
+              totalTemplates={templates.length}
               isDoneToday={Boolean(isDoneTodayMap.get(template.id))}
               lastRun={latestRunsByTemplate.get(template.id)}
               savedRun={savedRacesByTemplateId.get(template.id)}
@@ -578,6 +590,9 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
                   ? () => onToggleDoneToday(template.id, Boolean(isDoneTodayMap.get(template.id)))
                   : undefined
               }
+              onOpenChangeIndex={(t) => setIndexModalTarget(t)}
+              onMoveUp={onMoveTemplate ? (id) => onMoveTemplate(id, 'up') : undefined}
+              onMoveDown={onMoveTemplate ? (id) => onMoveTemplate(id, 'down') : undefined}
             />
           ))}
         </div>
@@ -651,6 +666,17 @@ export const RaceDashboard: React.FC<RaceDashboardProps> = ({
           }
         }}
         onCancel={() => setDiscardTarget(null)}
+      />
+
+      {/* Change Race Index Modal */}
+      <ChangeRaceIndexModal
+        isOpen={Boolean(indexModalTarget)}
+        template={indexModalTarget}
+        totalTemplates={templates.length}
+        onClose={() => setIndexModalTarget(null)}
+        onSaveIndex={(id, newIndex) => {
+          onUpdateTemplateOrder?.(id, newIndex);
+        }}
       />
     </div>
   );
