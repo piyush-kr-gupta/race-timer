@@ -25,6 +25,7 @@ export function templatesToCsv(templates: RaceTemplate[]): string {
     [
       'Race ID',
       'Race Name',
+      'Order',
       'Category',
       'Tags',
       'Description',
@@ -41,6 +42,7 @@ export function templatesToCsv(templates: RaceTemplate[]): string {
     rows.push([
       t.id,
       t.name,
+      String(typeof t.order === 'number' ? t.order + 1 : ''),
       t.category || '',
       (t.tags || []).join('; '),
       t.description || '',

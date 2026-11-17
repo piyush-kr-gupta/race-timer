@@ -32,6 +32,8 @@ export function App() {
     duplicateTemplate,
     toggleArchive,
     toggleDoneToday,
+    updateTemplateOrder,
+    moveTemplate,
     deleteRun,
     clearAllRuns,
     resetSeedData,
@@ -407,6 +409,8 @@ export function App() {
                 sortBy={settings.dashboardSortBy}
                 onSortByChange={(newSort) => updateSettings({ dashboardSortBy: newSort })}
                 onToggleDoneToday={toggleDoneToday}
+                onUpdateTemplateOrder={updateTemplateOrder}
+                onMoveTemplate={moveTemplate}
               />
             )}
 

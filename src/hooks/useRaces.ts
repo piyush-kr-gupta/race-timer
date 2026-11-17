@@ -76,6 +76,28 @@ export function useRaces() {
     }
   };
 
+  const updateTemplateOrder = async (templateId: string, new1BasedIndex: number) => {
+    await storage.updateTemplateOrder(templateId, new1BasedIndex);
+    await refresh();
+  };
+
+  const moveTemplate = async (templateId: string, direction: 'up' | 'down') => {
+    const sorted = [...templates].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const currentIndex = sorted.findIndex((t) => t.id === templateId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+
+    await storage.updateTemplateOrder(templateId, targetIndex + 1);
+    await refresh();
+  };
+
+  const reorderTemplates = async (orderedIds: string[]) => {
+    await storage.reorderTemplates(orderedIds);
+    await refresh();
+  };
+
   const deleteRun = async (id: string) => {
     await storage.deleteRun(id);
     await refresh();
@@ -102,6 +124,9 @@ export function useRaces() {
     duplicateTemplate,
     toggleArchive,
     toggleDoneToday,
+    updateTemplateOrder,
+    moveTemplate,
+    reorderTemplates,
     deleteRun,
     clearAllRuns,
     resetSeedData,

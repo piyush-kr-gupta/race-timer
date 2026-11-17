@@ -622,11 +622,18 @@ export const HabitTrackerDashboard: React.FC<HabitTrackerDashboardProps> = ({
                   }`}
                 >
                   <div>
-                    {/* Top Row: Category badge & Done Status */}
+                    {/* Top Row: Index + Category badge & Done Status */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-lg uppercase tracking-wider">
-                        {metric.category}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {template && typeof template.order === 'number' && (
+                          <span className="px-2 py-0.5 bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[10px] font-mono font-black rounded-lg">
+                            #{template.order + 1}
+                          </span>
+                        )}
+                        <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-lg uppercase tracking-wider">
+                          {metric.category}
+                        </span>
+                      </div>
 
                       {metric.isDoneToday ? (
                         <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">

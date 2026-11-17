@@ -32,6 +32,7 @@ export interface RaceTemplate {
   category: string;
   tags: string[];
   tasks: Task[];
+  order?: number; // 0-based custom sequence index
   createdAt: string; // ISO
   updatedAt: string; // ISO
   isArchived?: boolean;
@@ -152,7 +153,7 @@ export interface ApologyEntry {
   pendingRaceCount: number;
 }
 
-export type RaceSortOption = 'updated' | 'name' | 'duration-desc' | 'duration-asc';
+export type RaceSortOption = 'index' | 'updated' | 'name' | 'duration-desc' | 'duration-asc';
 
 export interface BackupExportData {
   schemaVersion: number;
