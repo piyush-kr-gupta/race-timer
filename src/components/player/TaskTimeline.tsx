@@ -1,7 +1,7 @@
 import React from 'react';
 import { TaskRun } from '../../types/race';
 import { formatTime } from '../../utils/duration';
-import { CheckCircle2, SkipForward, AlertCircle, Circle } from 'lucide-react';
+import { CheckCircle2, SkipForward, Circle } from 'lucide-react';
 
 interface TaskTimelineProps {
   taskRuns: TaskRun[];
@@ -27,9 +27,8 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({
       <div className="space-y-2.5">
         {taskRuns.map((run, idx) => {
           const isCurrent = idx === currentIndex;
-          const isCompleted = run.status === 'completed';
+          const isCompleted = run.status === 'completed' || run.status === 'expired';
           const isSkipped = run.status === 'skipped';
-          const isExpired = run.status === 'expired';
           const isPending = run.status === 'pending';
 
           const allocatedStr = formatTime(run.allocatedSeconds);
@@ -46,8 +45,6 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({
                   ? 'bg-slate-900/50 border-slate-800 text-slate-300'
                   : isSkipped
                   ? 'bg-slate-950/40 border-slate-800/60 opacity-60'
-                  : isExpired
-                  ? 'bg-rose-950/20 border-rose-900/40 text-rose-300'
                   : 'bg-slate-950/60 border-slate-800/80 text-slate-400'
               }`}
             >
@@ -62,7 +59,6 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({
                     </span>
                   )}
                   {isSkipped && <SkipForward className="w-5 h-5 text-slate-500 shrink-0" />}
-                  {isExpired && <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />}
                   {isPending && <Circle className="w-5 h-5 text-slate-600 shrink-0" />}
                 </div>
 
@@ -119,13 +115,6 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({
                     <span className="font-semibold text-slate-200">
                       {actualStr} <span className="text-slate-500 font-normal">/ {allocatedStr}</span>
                     </span>
-                  </div>
-                )}
-
-                {isExpired && (
-                  <div className="text-right">
-                    <span className="text-rose-400 text-[11px] block font-sans">Time Expired</span>
-                    <span className="text-slate-400 font-medium">{allocatedStr}</span>
                   </div>
                 )}
 

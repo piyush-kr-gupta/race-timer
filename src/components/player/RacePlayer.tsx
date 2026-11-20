@@ -7,7 +7,7 @@ import { SessionTaskManager } from './SessionTaskManager';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { speech } from '../../services/timer/speechService';
-import { BellRing, ArrowLeft, BookmarkCheck } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, BookmarkCheck } from 'lucide-react';
 
 interface RacePlayerProps {
   tickData: TimerTickData;
@@ -173,12 +173,12 @@ export const RacePlayer: React.FC<RacePlayerProps> = ({
         </div>
       )}
 
-      {/* Task Expired Time's Up Banner */}
+      {/* Task Completed Transition Banner */}
       {expiredAlert && (
-        <div className="bg-rose-600 text-white font-bold text-center py-2.5 px-4 shadow-lg animate-bounce flex items-center justify-center gap-2 text-sm z-40 relative">
-          <BellRing className="w-5 h-5 animate-spin" />
+        <div className="bg-emerald-600 text-white font-bold text-center py-2.5 px-4 shadow-lg animate-bounce flex items-center justify-center gap-2 text-sm z-40 relative">
+          <CheckCircle2 className="w-5 h-5" />
           <span>
-            TIME'S UP! {expiredAlert.taskName} expired. Moving to {expiredAlert.nextTaskName || 'Finish'}!
+            {expiredAlert.taskName} completed! Moving to {expiredAlert.nextTaskName || 'Finish'}...
           </span>
         </div>
       )}

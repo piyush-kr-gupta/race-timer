@@ -11,7 +11,6 @@ import {
   TrendingUp,
   PauseCircle,
   CheckCircle2,
-  AlertCircle,
   SkipForward,
   Edit,
   CheckSquare,
@@ -31,9 +30,8 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
   onEditRace,
   onBackHome,
 }) => {
-  const completedTasks = run.taskRuns.filter((t) => t.status === 'completed');
+  const completedTasks = run.taskRuns.filter((t) => t.status === 'completed' || t.status === 'expired');
   const skippedTasks = run.taskRuns.filter((t) => t.status === 'skipped');
-  const expiredTasks = run.taskRuns.filter((t) => t.status === 'expired');
 
   const totalTimeDiff = run.totalActualSeconds - run.totalAllocatedSeconds;
   const isAheadOfTime = totalTimeDiff <= 0;
@@ -115,10 +113,9 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
             <span className="font-mono text-xl sm:text-2xl font-black text-slate-100">
               {completedTasks.length} / {run.taskRuns.length}
             </span>
-            {(skippedTasks.length > 0 || expiredTasks.length > 0) && (
+            {skippedTasks.length > 0 && (
               <span className="text-[10px] text-slate-400 block mt-0.5">
-                {skippedTasks.length > 0 && `${skippedTasks.length} skipped `}
-                {expiredTasks.length > 0 && `${expiredTasks.length} expired`}
+                {skippedTasks.length} skipped
               </span>
             )}
           </div>
@@ -244,14 +241,9 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-3 font-sans">
-                      {tr.status === 'completed' && (
+                      {(tr.status === 'completed' || tr.status === 'expired') && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full">
                           <CheckCircle2 className="w-3 h-3" /> Completed
-                        </span>
-                      )}
-                      {tr.status === 'expired' && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400 bg-rose-950/60 border border-rose-800 px-2 py-0.5 rounded-full">
-                          <AlertCircle className="w-3 h-3" /> Expired
                         </span>
                       )}
                       {tr.status === 'skipped' && (

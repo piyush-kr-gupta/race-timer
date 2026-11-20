@@ -533,17 +533,21 @@ export class TimerEngine {
         }
 
         if (this.settings.browserNotificationsEnabled) {
-          notifications.notify("TIME'S UP!", {
-            body: `${currentRun.taskSnapshot.name} expired. Moving to ${nextTaskName || 'finish'}.`,
+          notifications.notify("Task Complete!", {
+            body: `${currentRun.taskSnapshot.name} completed. Moving to ${nextTaskName || 'finish'}.`,
           });
         }
 
-        // Mark current as expired and advance
-        currentRun.status = 'expired';
+        // Mark current task as completed upon duration finish and advance
+        currentRun.status = 'completed';
         currentRun.actualSeconds = taskElapsed;
         currentRun.overtimeSeconds = 0;
         currentRun.completedAt = new Date(now).toISOString();
-        currentRun.events.push({ type: 'expire', timestamp: currentRun.completedAt });
+        currentRun.events.push({ type: 'complete', timestamp: currentRun.completedAt });
+
+        if (this.settings.completionSoundEnabled) {
+          audio.playTaskComplete();
+        }
 
         this.advanceToNextTask();
         return;

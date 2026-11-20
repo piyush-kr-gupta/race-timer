@@ -180,7 +180,7 @@ describe('TimerEngine', () => {
     expect(run.taskRuns[0].overtimeSeconds).toBe(2);
   });
 
-  it('auto-advances when task expires with autoAdvance enabled', () => {
+  it('auto-advances and marks task as completed when duration elapses with autoAdvance enabled', () => {
     engine.updateSettings({
       ...DEFAULT_SETTINGS,
       autoAdvance: true,
@@ -196,7 +196,9 @@ describe('TimerEngine', () => {
     // Should have advanced to task 1
     expect(data.currentTaskIndex).toBe(1);
     const run = engine.getCurrentRun()!;
-    expect(run.taskRuns[0].status).toBe('expired');
+    expect(run.taskRuns[0].status).toBe('completed');
+    expect(run.taskRuns[0].actualSeconds).toBe(10);
+    expect(run.taskRuns[0].events.some((e) => e.type === 'complete')).toBe(true);
   });
 
   it('finishes race upon completing the last task', () => {
