@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { RaceTemplate, Task } from '../../types/race';
 import { TaskItem } from './TaskItem';
 import { formatDurationHuman } from '../../utils/duration';
-import { Plus, Clock, Save, ArrowLeft, Layers, Tag, Hash } from 'lucide-react';
+import { Plus, Clock, Save, ArrowLeft, Layers, Tag } from 'lucide-react';
 
 interface RaceEditorProps {
   initialTemplate?: RaceTemplate;
@@ -23,9 +23,6 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
   const [description, setDescription] = useState(initialTemplate?.description || '');
   const [category, setCategory] = useState(initialTemplate?.category || 'General');
   const [tagsStr, setTagsStr] = useState((initialTemplate?.tags || []).join(', '));
-  const [orderIndex, setOrderIndex] = useState<number | undefined>(
-    initialTemplate && typeof initialTemplate.order === 'number' ? initialTemplate.order + 1 : undefined
-  );
   const [tasks, setTasks] = useState<Task[]>(
     initialTemplate?.tasks
       ? JSON.parse(JSON.stringify(initialTemplate.tasks))
@@ -215,7 +212,7 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
       category: category.trim() || 'General',
       tags,
       tasks: reorderedTasks,
-      order: typeof orderIndex === 'number' ? Math.max(0, orderIndex - 1) : initialTemplate?.order,
+      order: initialTemplate?.order,
       createdAt: initialTemplate?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isArchived: initialTemplate?.isArchived || false,
@@ -290,26 +287,8 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
           </div>
         </div>
 
-        {/* Secondary Metadata: Description, Category, Tags & Index */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-1">
-          <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-400 mb-1.5 flex items-center gap-1">
-              <Hash className="w-3.5 h-3.5 text-orange-400" />
-              Race Index
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={orderIndex ?? ''}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setOrderIndex(!isNaN(val) && val >= 1 ? val : undefined);
-              }}
-              placeholder="Auto / End"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[40px]"
-            />
-          </div>
-
+        {/* Secondary Metadata: Description, Category, Tags */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
           <div className="md:col-span-1">
             <label className="block text-xs font-semibold text-slate-400 mb-1.5">
               Category
@@ -337,7 +316,7 @@ export const RaceEditor: React.FC<RaceEditorProps> = ({
             />
           </div>
 
-          <div className="md:col-span-4">
+          <div className="md:col-span-3">
             <label className="block text-xs font-semibold text-slate-400 mb-1.5">
               Description (Optional)
             </label>
