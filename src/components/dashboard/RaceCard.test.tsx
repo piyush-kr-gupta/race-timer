@@ -107,4 +107,19 @@ describe('RaceCard - Indexing & Reordering', () => {
     // Verify sorting button is removed from bottom of card
     expect(screen.queryByLabelText('Change race index')).toBeNull();
   });
+
+  it('calls onDuplicate when duplicate button is clicked', () => {
+    const handleDuplicate = vi.fn();
+
+    render(
+      <RaceCard
+        {...defaultProps}
+        onDuplicate={handleDuplicate}
+      />
+    );
+
+    const duplicateBtn = screen.getByLabelText('Duplicate race');
+    fireEvent.click(duplicateBtn);
+    expect(handleDuplicate).toHaveBeenCalledWith('template-1');
+  });
 });

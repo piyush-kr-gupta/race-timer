@@ -269,11 +269,16 @@ export class StorageService {
       createdAt: now,
       updatedAt: now,
       isSample: false,
+      manualDoneDate: undefined,
+      manualActiveDate: undefined,
       tasks: original.tasks.map((t, index) => ({
         ...t,
         id: `task-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 5)}`,
       })),
     };
+
+    // Save the duplicate into the database first so it is persisted
+    await this.saveTemplate(duplicate);
 
     // Insert duplicate right after original in list and re-normalize orders
     const nextList = [...all];
@@ -283,8 +288,9 @@ export class StorageService {
       nextList.push(duplicate);
     }
 
-    await this.reorderTemplates(nextList.map((t) => t.id));
-    return duplicate;
+    const reordered = await this.reorderTemplates(nextList.map((t) => t.id));
+    const savedDup = reordered.find((t) => t.id === duplicate.id);
+    return savedDup || duplicate;
   }
 
   // ===================== RUNS / HISTORY =====================
