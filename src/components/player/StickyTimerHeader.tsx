@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Flag,
   BookmarkCheck,
+  Trophy,
 } from 'lucide-react';
 import { ProgressBar } from '../common/ProgressBar';
 
@@ -76,9 +77,16 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
           <div className="flex items-center gap-2 truncate">
             <span className="font-semibold text-slate-300 truncate">{raceName}</span>
             <span>•</span>
-            <span className="text-orange-400 font-medium">
-              Task {tickData.currentTaskIndex + 1} of {tickData.totalTaskCount}
-            </span>
+            {currentTask?.isEarnedBuffer ? (
+              <span className="text-amber-400 font-bold flex items-center gap-1">
+                <Trophy className="w-3.5 h-3.5" />
+                Earned Buffer
+              </span>
+            ) : (
+              <span className="text-orange-400 font-medium">
+                Task {tickData.currentTaskIndex + 1} of {tickData.totalTaskCount}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -108,8 +116,16 @@ export const StickyTimerHeader: React.FC<StickyTimerHeaderProps> = ({
         </div>
 
         {/* Current Task Name */}
-        <h2 className="text-lg sm:text-2xl font-black text-slate-100 tracking-tight mb-1 flex items-center gap-2">
+        <h2 className={`text-lg sm:text-2xl font-black tracking-tight mb-1 flex items-center justify-center gap-2 ${
+          currentTask?.isEarnedBuffer ? 'text-amber-300' : 'text-slate-100'
+        }`}>
+          {currentTask?.isEarnedBuffer && <Trophy className="w-5 h-5 text-amber-400 shrink-0" />}
           {currentTask?.name || 'Task'}
+          {currentTask?.isEarnedBuffer && (
+            <span className="text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 tracking-wider">
+              Earned Time
+            </span>
+          )}
           {isOvertime && (
             <span className="text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-md bg-rose-600/30 text-rose-400 border border-rose-500/40 tracking-wider animate-pulse">
               Overtime

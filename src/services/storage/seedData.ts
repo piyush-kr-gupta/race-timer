@@ -32,6 +32,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accountabilityPledgeMessage: DEFAULT_PLEDGE_MESSAGE,
   apologyLog: [],
   habitTrackerStartDate: '2026-10-01',
+  earnedBufferEnabled: true,
+  earnedBufferName: 'Earned Buffer',
 };
 
 export const SEED_TEMPLATES: RaceTemplate[] = [

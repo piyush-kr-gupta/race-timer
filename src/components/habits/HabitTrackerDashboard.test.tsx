@@ -74,6 +74,8 @@ describe('HabitTrackerDashboard', () => {
     accountabilityPledgeMessage: 'Test pledge',
     apologyLog: [],
     habitTrackerStartDate: '2026-10-01',
+    earnedBufferEnabled: true,
+    earnedBufferName: 'Earned Buffer',
   };
 
   it('renders habit dashboard header and KPI summary cards', () => {

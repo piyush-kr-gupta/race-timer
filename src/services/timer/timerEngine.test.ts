@@ -56,7 +56,9 @@ describe('TimerEngine', () => {
     const run = engine.initializeRun(mockTemplate);
     expect(run.status).toBe('running');
     expect(run.totalAllocatedSeconds).toBe(60);
-    expect(run.taskRuns.length).toBe(3);
+    expect(run.taskRuns.length).toBe(4); // 3 regular tasks + 1 Earned Buffer task
+    expect(run.taskRuns[3].isEarnedBuffer).toBe(true);
+    expect(run.taskRuns[3].taskSnapshot.name).toBe('Earned Buffer');
 
     const data = engine.getTickData();
     expect(data.timerState).toBe('IDLE');
@@ -210,6 +212,8 @@ describe('TimerEngine', () => {
     // Complete task 2
     engine.completeTask();
     // Complete task 3
+    engine.completeTask();
+    // Complete Earned Buffer
     engine.completeTask();
 
     const data = engine.getTickData();
@@ -436,6 +440,9 @@ describe('TimerEngine', () => {
     vi.advanceTimersByTime(25000);
     engine.completeTask();
 
+    // Earned Buffer task is unlocked with 25s lead! Complete Earned Buffer
+    engine.completeTask();
+
     // Race finishes: net variance = +20 (Task 1) - 30 (Task 2) + 35 (Task 3) = +25s
     expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
     expect(engine.getTickData().paceDeltaSeconds).toBe(25);
@@ -610,6 +617,167 @@ describe('TimerEngine', () => {
       cancelSpy.mockClear();
       engine.finishRace();
       expect(cancelSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('Earned Buffer Task', () => {
+    it('accumulates leading and trailing time and unlocks buffer task with exact lead duration', () => {
+      // User's exact scenario:
+      // 4 tasks of 5 min (300s) each
+      // Task 1: 3m (180s) -> +120s lead
+      // Task 2: 6m (360s) -> 60s delay -> net +60s
+      // Task 3: 4m 30s (270s) -> +30s lead -> net +90s
+      // Task 4: 3m 30s (210s) -> +90s lead -> net +180s (3m 00s)
+      const fourTaskTemplate: RaceTemplate = {
+        ...mockTemplate,
+        tasks: [
+          { id: 't1', name: 'Task 1', durationSeconds: 300, order: 0, enabled: true },
+          { id: 't2', name: 'Task 2', durationSeconds: 300, order: 1, enabled: true },
+          { id: 't3', name: 'Task 3', durationSeconds: 300, order: 2, enabled: true },
+          { id: 't4', name: 'Task 4', durationSeconds: 300, order: 3, enabled: true },
+        ],
+      };
+
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        allowOvertime: true,
+        autoAdvance: false,
+      });
+
+      engine.initializeRun(fourTaskTemplate);
+      engine.start();
+
+      // Task 1: 180s (3 min)
+      vi.advanceTimersByTime(180 * 1000);
+      engine.completeTask();
+
+      // Task 2: 360s (6 min)
+      vi.advanceTimersByTime(360 * 1000);
+      engine.completeTask();
+
+      // Task 3: 270s (4.5 min)
+      vi.advanceTimersByTime(270 * 1000);
+      engine.completeTask();
+
+      // Task 4: 210s (3.5 min)
+      vi.advanceTimersByTime(210 * 1000);
+      engine.completeTask();
+
+      // Earned Buffer should now be ACTIVE with exactly 180s (3 min)
+      const run = engine.getCurrentRun()!;
+      expect(run.taskRuns.length).toBe(5);
+      const bufferTaskRun = run.taskRuns[4];
+      expect(bufferTaskRun.isEarnedBuffer).toBe(true);
+      expect(bufferTaskRun.status).toBe('active');
+      expect(bufferTaskRun.allocatedSeconds).toBe(180);
+      expect(bufferTaskRun.taskSnapshot.durationSeconds).toBe(180);
+
+      const tick = engine.getTickData();
+      expect(tick.timerState).toBe('RUNNING');
+      expect(tick.taskAllocatedSeconds).toBe(180);
+      expect(tick.taskRemainingSeconds).toBe(180);
+      expect(tick.currentTaskIndex).toBe(4);
+
+      // Completing the Earned Buffer finishes the race
+      engine.completeTask();
+      expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+      expect(run.status).toBe('completed');
+    });
+
+    it('auto-disables buffer task without engaging if overall pace is trailing', () => {
+      // 2 tasks of 60s each
+      // Task 1: 90s (30s overtime)
+      // Task 2: 60s (exact)
+      // Net lead: -30s (trailing)
+      const trailingTemplate: RaceTemplate = {
+        ...mockTemplate,
+        tasks: [
+          { id: 't1', name: 'Task 1', durationSeconds: 60, order: 0, enabled: true },
+          { id: 't2', name: 'Task 2', durationSeconds: 60, order: 1, enabled: true },
+        ],
+      };
+
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        allowOvertime: true,
+        autoAdvance: false,
+      });
+
+      engine.initializeRun(trailingTemplate);
+      engine.start();
+
+      vi.advanceTimersByTime(90 * 1000);
+      engine.completeTask();
+
+      vi.advanceTimersByTime(60 * 1000);
+      engine.completeTask();
+
+      // Buffer task should be skipped, 0 duration, and race completed immediately
+      const run = engine.getCurrentRun()!;
+      const bufferTask = run.taskRuns[2];
+      expect(bufferTask.isEarnedBuffer).toBe(true);
+      expect(bufferTask.status).toBe('skipped');
+      expect(bufferTask.allocatedSeconds).toBe(0);
+      expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+      expect(run.status).toBe('completed');
+    });
+
+    it('excludes skipped tasks from the accumulated lead time calculation', () => {
+      const templateWithSkip: RaceTemplate = {
+        ...mockTemplate,
+        tasks: [
+          { id: 't1', name: 'Skipped Task', durationSeconds: 300, order: 0, enabled: true },
+          { id: 't2', name: 'Completed Task', durationSeconds: 300, order: 1, enabled: true },
+        ],
+      };
+
+      engine.initializeRun(templateWithSkip);
+      engine.start();
+
+      // Skip task 1 (should NOT contribute 300s to buffer)
+      engine.skipTask();
+
+      // Task 2: complete after 200s (saving 100s)
+      vi.advanceTimersByTime(200 * 1000);
+      engine.completeTask();
+
+      // Buffer task should have exactly 100s, not 400s
+      const run = engine.getCurrentRun()!;
+      const bufferTask = run.taskRuns[2];
+      expect(bufferTask.isEarnedBuffer).toBe(true);
+      expect(bufferTask.status).toBe('active');
+      expect(bufferTask.allocatedSeconds).toBe(100);
+    });
+
+    it('does not append Earned Buffer task when earnedBufferEnabled is false in settings', () => {
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        earnedBufferEnabled: false,
+      });
+
+      const run = engine.initializeRun(mockTemplate);
+      expect(run.taskRuns.length).toBe(3);
+      expect(run.taskRuns.some((t) => t.isEarnedBuffer)).toBe(false);
+
+      engine.start();
+      engine.completeTask();
+      engine.completeTask();
+      engine.completeTask();
+
+      expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+    });
+
+    it('uses custom buffer task name configured in settings', () => {
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        earnedBufferEnabled: true,
+        earnedBufferName: 'Victory Lap',
+      });
+
+      const run = engine.initializeRun(mockTemplate);
+      const bufferTask = run.taskRuns[3];
+      expect(bufferTask.isEarnedBuffer).toBe(true);
+      expect(bufferTask.taskSnapshot.name).toBe('Victory Lap');
     });
   });
 });

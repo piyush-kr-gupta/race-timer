@@ -210,6 +210,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500 cursor-pointer"
             />
           </div>
+
+          {/* Earned Buffer Task */}
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+            <div>
+              <span className="text-sm font-semibold text-slate-200 block">Earned Buffer Task</span>
+              <span className="text-xs text-slate-400">
+                Automatically append a final buffer task that accumulates ahead-of-pace time. Automatically disabled if trailing.
+              </span>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.earnedBufferEnabled ?? true}
+              onChange={(e) => onUpdateSettings({ earnedBufferEnabled: e.target.checked })}
+              className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-orange-500 focus:ring-orange-500 cursor-pointer"
+            />
+          </div>
+
+          {/* Buffer Task Name */}
+          {(settings.earnedBufferEnabled ?? true) && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+              <div>
+                <span className="text-sm font-semibold text-slate-200 block">Buffer Task Name</span>
+                <span className="text-xs text-slate-400">Custom name displayed for the earned buffer task</span>
+              </div>
+              <input
+                type="text"
+                value={settings.earnedBufferName || 'Earned Buffer'}
+                onChange={(e) => onUpdateSettings({ earnedBufferName: e.target.value })}
+                placeholder="Earned Buffer"
+                className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-orange-500 max-w-xs"
+              />
+            </div>
+          )}
         </div>
       </div>
 

@@ -31,7 +31,11 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
   onBackHome,
 }) => {
   const completedTasks = run.taskRuns.filter((t) => t.status === 'completed' || t.status === 'expired');
-  const skippedTasks = run.taskRuns.filter((t) => t.status === 'skipped');
+  const regularTasks = run.taskRuns.filter((t) => !t.isEarnedBuffer);
+  const earnedBufferRun = run.taskRuns.find((t) => t.isEarnedBuffer);
+  const bufferUnlocked = earnedBufferRun && earnedBufferRun.status === 'completed';
+  const displayTotalTasks = bufferUnlocked ? regularTasks.length + 1 : regularTasks.length;
+  const userSkippedTasks = run.taskRuns.filter((t) => t.status === 'skipped' && !t.isEarnedBuffer);
 
   const totalTimeDiff = run.totalActualSeconds - run.totalAllocatedSeconds;
   const isAheadOfTime = totalTimeDiff <= 0;
@@ -111,11 +115,11 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
           <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
             <span className="text-[11px] font-semibold text-slate-400 uppercase block">Tasks Completed</span>
             <span className="font-mono text-xl sm:text-2xl font-black text-slate-100">
-              {completedTasks.length} / {run.taskRuns.length}
+              {completedTasks.length} / {displayTotalTasks}
             </span>
-            {skippedTasks.length > 0 && (
+            {userSkippedTasks.length > 0 && (
               <span className="text-[10px] text-slate-400 block mt-0.5">
-                {skippedTasks.length} skipped
+                {userSkippedTasks.length} skipped
               </span>
             )}
           </div>
@@ -223,7 +227,15 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
                   <tr key={tr.taskId} className="hover:bg-slate-800/40 transition">
                     <td className="py-3 px-3 text-slate-500 font-bold">{index + 1}</td>
                     <td className="py-3 px-3 font-sans font-semibold text-slate-100 max-w-[200px] truncate">
-                      {tr.taskSnapshot.name}
+                      <div className="flex items-center gap-1.5">
+                        {tr.isEarnedBuffer && <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                        <span className="truncate">{tr.taskSnapshot.name}</span>
+                        {tr.isEarnedBuffer && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                            Buffer
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3 text-slate-400">{formatTime(tr.allocatedSeconds)}</td>
                     <td className="py-3 px-3 text-slate-200 font-bold">{formatTime(tr.actualSeconds)}</td>
@@ -241,16 +253,19 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-3 font-sans">
-                      {(tr.status === 'completed' || tr.status === 'expired') && (
+                      {tr.isEarnedBuffer && tr.status === 'skipped' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400/80 bg-amber-950/40 border border-amber-800/50 px-2 py-0.5 rounded-full">
+                          <Trophy className="w-3 h-3 text-amber-500" /> Not Unlocked (Trailing)
+                        </span>
+                      ) : (tr.status === 'completed' || tr.status === 'expired') ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full">
                           <CheckCircle2 className="w-3 h-3" /> Completed
                         </span>
-                      )}
-                      {tr.status === 'skipped' && (
+                      ) : tr.status === 'skipped' ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
                           <SkipForward className="w-3 h-3" /> Skipped
                         </span>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 );

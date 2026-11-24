@@ -126,4 +126,27 @@ describe('SettingsView Accountability Section', () => {
     fireEvent.click(monthPresetBtn);
     expect(handleUpdateSettings).toHaveBeenCalled();
   });
+
+  it('renders Earned Buffer configuration and allows updating toggle and name', () => {
+    const handleUpdateSettings = vi.fn();
+
+    render(
+      <SettingsView
+        settings={DEFAULT_SETTINGS}
+        onUpdateSettings={handleUpdateSettings}
+        onResetSeedData={vi.fn().mockResolvedValue({ added: 0, updated: 0 })}
+        onRefreshData={vi.fn()}
+        onShowToast={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Earned Buffer Task')).toBeInTheDocument();
+    expect(screen.getByText('Buffer Task Name')).toBeInTheDocument();
+
+    const nameInput = screen.getByDisplayValue('Earned Buffer');
+    expect(nameInput).toBeInTheDocument();
+
+    fireEvent.change(nameInput, { target: { value: 'Cooldown Lap' } });
+    expect(handleUpdateSettings).toHaveBeenCalledWith({ earnedBufferName: 'Cooldown Lap' });
+  });
 });

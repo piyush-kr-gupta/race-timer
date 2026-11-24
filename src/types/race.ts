@@ -23,6 +23,7 @@ export interface Task {
   enabled: boolean;
   color?: string;
   icon?: string;
+  isEarnedBuffer?: boolean;
 }
 
 export interface RaceTemplate {
@@ -63,6 +64,7 @@ export interface TaskRun {
   completedAt?: string; // ISO
   status: TaskStatus;
   events: TaskRunEvent[];
+  isEarnedBuffer?: boolean;
 }
 
 export interface SessionTaskItem {
@@ -142,6 +144,9 @@ export interface AppSettings {
   apologyLog: ApologyEntry[];
   // Habit Tracker
   habitTrackerStartDate?: string; // e.g. 'YYYY-MM-DD' reference start date
+  // Earned Buffer (End-of-race accumulator task)
+  earnedBufferEnabled: boolean;
+  earnedBufferName: string;
 }
 
 export interface ApologyEntry {

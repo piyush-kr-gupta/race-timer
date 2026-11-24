@@ -45,6 +45,12 @@ describe('Race Workflow and Snapshot Integrity', () => {
       ],
     };
 
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      autoAdvance: false,
+      allowOvertime: true,
+    });
+
     engine.initializeRun(testTemplate);
     engine.start();
 
@@ -66,11 +72,16 @@ describe('Race Workflow and Snapshot Integrity', () => {
     expect(run.taskRuns[1].actualSeconds).toBe(130);
     expect(run.taskRuns[1].overtimeSeconds).toBe(10);
 
+    // With +5s net lead, Earned Buffer is unlocked with 5s
+    expect(run.taskRuns[2].isEarnedBuffer).toBe(true);
+    expect(run.taskRuns[2].allocatedSeconds).toBe(5);
+    engine.completeTask();
+
     // Race should now be completed
     expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
     expect(run.status).toBe('completed');
     expect(run.totalActualSeconds).toBe(175); // 45s + 130s
-    expect(run.totalAllocatedSeconds).toBe(180); // 60s + 120s
+    expect(run.totalAllocatedSeconds).toBe(185); // 60s + 120s + 5s earned buffer
   });
 
   it('handles pause intervals during race accurately without corrupting task or race totals', () => {
@@ -83,6 +94,12 @@ describe('Race Workflow and Snapshot Integrity', () => {
       updatedAt: '2026-09-24T00:00:00.000Z',
       tasks: [{ id: 't1', name: 'Task 1', durationSeconds: 100, order: 0, enabled: true }],
     };
+
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      autoAdvance: false,
+      allowOvertime: true,
+    });
 
     engine.initializeRun(testTemplate);
     engine.start();
@@ -219,11 +236,19 @@ describe('Race Workflow and Snapshot Integrity', () => {
       completedRunResult = run;
     });
 
+    engine.updateSettings({
+      ...DEFAULT_SETTINGS,
+      autoAdvance: false,
+      allowOvertime: true,
+    });
+
     engine.initializeRun(testTemplate);
     engine.start();
 
     // Advance 30s and complete the single task
     vi.advanceTimersByTime(30000);
+    engine.completeTask();
+    // Complete the Earned Buffer task unlocked by saving 30s
     engine.completeTask();
 
     // When the last task completes, advanceToNextTask triggers finishRace()
@@ -298,7 +323,8 @@ describe('Race Workflow and Snapshot Integrity', () => {
 
     // Complete cooking race
     engine.completeTask(); // Prep done
-    engine.completeTask(); // Simmer done -> finishes race
+    engine.completeTask(); // Simmer done
+    engine.completeTask(); // Earned buffer done -> finishes race
 
     const finishedCookingRun = engine.getCurrentRun()!;
     expect(finishedCookingRun.status).toBe('completed');

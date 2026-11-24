@@ -1,6 +1,7 @@
 import {
   RaceTemplate,
   RaceRun,
+  Task,
   TaskRun,
   TimerState,
   AppSettings,
@@ -170,6 +171,30 @@ export class TimerEngine {
             events: [],
           })),
         };
+
+    if (!existingRun && this.settings.earnedBufferEnabled !== false) {
+      const bufferTaskName = this.settings.earnedBufferName?.trim() || 'Earned Buffer';
+      const bufferTask: Task = {
+        id: `task-earned-buffer-${template.id}`,
+        name: bufferTaskName,
+        durationSeconds: 0,
+        notes: 'Accumulated buffer earned from beating the clock on earlier tasks.',
+        order: template.tasks.length,
+        enabled: true,
+        color: '#f59e0b',
+        isEarnedBuffer: true,
+      };
+      run.taskRuns.push({
+        taskId: bufferTask.id,
+        taskSnapshot: bufferTask,
+        allocatedSeconds: 0,
+        actualSeconds: 0,
+        overtimeSeconds: 0,
+        status: 'pending',
+        events: [],
+        isEarnedBuffer: true,
+      });
+    }
 
     this.run = run;
     this.currentTaskIndex = this.findNextEnabledTaskIndex(-1);
@@ -364,6 +389,14 @@ export class TimerEngine {
       currentRun.status = 'completed';
     }
 
+    // Finalize any unengaged pending Earned Buffer task as skipped
+    const pendingBuffer = this.run.taskRuns.find((t) => t.isEarnedBuffer && t.status === 'pending');
+    if (pendingBuffer) {
+      pendingBuffer.status = 'skipped';
+      pendingBuffer.allocatedSeconds = 0;
+      pendingBuffer.actualSeconds = 0;
+    }
+
     const totalActual = this.calculateRaceElapsedSeconds(now);
     const totalAllocated = this.run.totalAllocatedSeconds;
     const totalOvertime = Math.max(0, totalActual - totalAllocated);
@@ -390,7 +423,20 @@ export class TimerEngine {
     }
   }
 
-  // ===================== TASK ADVANCEMENT =====================
+  // ===================== TASK ADVANCEMENT & ACCUMULATED BUFFER =====================
+
+  calculateAccumulatedLeadSeconds(): number {
+    if (!this.run) return 0;
+    let lead = 0;
+    for (const tr of this.run.taskRuns) {
+      if (tr.isEarnedBuffer || !tr.taskSnapshot.enabled) continue;
+      if (tr.status === 'completed') {
+        lead += (tr.allocatedSeconds - tr.actualSeconds);
+      }
+      // Skipped tasks are excluded from earned buffer as requested
+    }
+    return lead;
+  }
 
   private advanceToNextTask() {
     if (!this.run) return;
@@ -403,13 +449,31 @@ export class TimerEngine {
       return;
     }
 
+    const nextRun = this.run.taskRuns[nextIndex];
+    if (nextRun?.isEarnedBuffer) {
+      const accumulatedLead = this.calculateAccumulatedLeadSeconds();
+      if (accumulatedLead > 0) {
+        nextRun.allocatedSeconds = accumulatedLead;
+        nextRun.taskSnapshot.durationSeconds = accumulatedLead;
+        this.run.totalAllocatedSeconds = this.run.taskRuns
+          .filter((t) => t.taskSnapshot.enabled && t.status !== 'skipped')
+          .reduce((sum, t) => sum + t.allocatedSeconds, 0);
+      } else {
+        // Overall time is trailing or zero: disable Earned Buffer and do not engage
+        nextRun.allocatedSeconds = 0;
+        nextRun.taskSnapshot.durationSeconds = 0;
+        nextRun.status = 'skipped';
+        this.finishRace();
+        return;
+      }
+    }
+
     this.currentTaskIndex = nextIndex;
     this.warnedThresholdsForCurrentTask.clear();
     this.lastCountdownSecondWarned = null;
 
     const now = Date.now();
     const nowIso = new Date(now).toISOString();
-    const nextRun = this.run.taskRuns[nextIndex];
 
     this.taskStartedAt = now;
     this.taskPausedAt = null;
@@ -597,9 +661,39 @@ export class TimerEngine {
     const raceProgressPercent =
       raceAllocated > 0 ? Math.min(100, Math.round((raceElapsed / raceAllocated) * 100)) : 0;
 
+    // Calculate cumulative pace variance / delta across completed tasks and current task overtime
+    let paceDelta = 0;
+    if (this.run) {
+      for (let i = 0; i < this.run.taskRuns.length; i++) {
+        const tr = this.run.taskRuns[i];
+        if (tr.isEarnedBuffer || !tr.taskSnapshot.enabled) continue;
+
+        if (tr.status === 'completed') {
+          paceDelta += (tr.allocatedSeconds - tr.actualSeconds);
+        } else if (i === this.currentTaskIndex) {
+          paceDelta -= taskOvertime;
+        }
+      }
+    }
+
+    // Live preview for pending Earned Buffer task
+    const pendingBufferRun = this.run?.taskRuns.find((t) => t.isEarnedBuffer && t.status === 'pending');
+    if (pendingBufferRun && this.currentTaskIndex >= 0) {
+      const liveLead = Math.max(0, paceDelta);
+      pendingBufferRun.allocatedSeconds = liveLead;
+      pendingBufferRun.taskSnapshot.durationSeconds = liveLead;
+    }
+
     const completedCount =
       this.run?.taskRuns.filter((t) => t.status === 'completed' || t.status === 'expired').length || 0;
-    const totalCount = this.run?.taskRuns.filter((t) => t.taskSnapshot.enabled).length || 0;
+    const totalCount =
+      this.run?.taskRuns.filter((t) => {
+        if (!t.taskSnapshot.enabled) return false;
+        if (t.isEarnedBuffer) {
+          return t.status === 'active' || t.status === 'completed';
+        }
+        return true;
+      }).length || 0;
 
     const totalPaused = Math.floor(
       (this.raceAccumulatedPausedMs + (this.racePausedAt ? now - this.racePausedAt : 0)) / 1000
@@ -616,21 +710,6 @@ export class TimerEngine {
       taskRemaining > 0 &&
       taskRemaining <= countdownThreshold &&
       this.timerState !== 'PAUSED';
-
-    // Calculate cumulative pace variance / delta across completed tasks and current task overtime
-    let paceDelta = 0;
-    if (this.run) {
-      for (let i = 0; i < this.run.taskRuns.length; i++) {
-        const tr = this.run.taskRuns[i];
-        if (!tr.taskSnapshot.enabled) continue;
-
-        if (tr.status === 'completed' || tr.status === 'expired' || tr.status === 'skipped') {
-          paceDelta += (tr.allocatedSeconds - tr.actualSeconds);
-        } else if (i === this.currentTaskIndex) {
-          paceDelta -= taskOvertime;
-        }
-      }
-    }
 
     return {
       timerState: this.timerState,
