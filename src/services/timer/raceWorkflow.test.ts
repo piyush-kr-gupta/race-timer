@@ -81,7 +81,7 @@ describe('Race Workflow and Snapshot Integrity', () => {
     expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
     expect(run.status).toBe('completed');
     expect(run.totalActualSeconds).toBe(175); // 45s + 130s
-    expect(run.totalAllocatedSeconds).toBe(185); // 60s + 120s + 5s earned buffer
+    expect(run.totalAllocatedSeconds).toBe(180); // 60s + 120s (template planned allocated duration)
   });
 
   it('handles pause intervals during race accurately without corrupting task or race totals', () => {

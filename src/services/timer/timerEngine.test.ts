@@ -671,17 +671,84 @@ describe('TimerEngine', () => {
       expect(bufferTaskRun.status).toBe('active');
       expect(bufferTaskRun.allocatedSeconds).toBe(180);
       expect(bufferTaskRun.taskSnapshot.durationSeconds).toBe(180);
+      expect(run.totalAllocatedSeconds).toBe(1200); // Planned template duration (4 * 300s), NOT inflated!
 
-      const tick = engine.getTickData();
+      let tick = engine.getTickData();
       expect(tick.timerState).toBe('RUNNING');
       expect(tick.taskAllocatedSeconds).toBe(180);
       expect(tick.taskRemainingSeconds).toBe(180);
       expect(tick.currentTaskIndex).toBe(4);
+      expect(tick.paceDeltaSeconds).toBe(180); // Leading by 3 minutes at buffer start
+      expect(tick.raceRemainingSeconds).toBe(180); // In sync with buffer duration
+
+      // Advance 60s into the buffer: lead should decrement in real time
+      vi.advanceTimersByTime(60 * 1000);
+      tick = engine.getTickData();
+      expect(tick.taskElapsedSeconds).toBe(60);
+      expect(tick.taskRemainingSeconds).toBe(120);
+      expect(tick.paceDeltaSeconds).toBe(120); // 180s - 60s = 120s (+02:00 lead)
+      expect(tick.raceRemainingSeconds).toBe(120);
+
+      // Advance another 120s (total 180s in buffer): buffer time fully consumed
+      vi.advanceTimersByTime(120 * 1000);
+      tick = engine.getTickData();
+      expect(tick.taskElapsedSeconds).toBe(180);
+      expect(tick.taskRemainingSeconds).toBe(0);
+      expect(tick.paceDeltaSeconds).toBe(0); // Exactly on pace (180s - 180s = 0)
+      expect(tick.raceRemainingSeconds).toBe(0);
 
       // Completing the Earned Buffer finishes the race
       engine.completeTask();
       expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+      expect(engine.getTickData().paceDeltaSeconds).toBe(0);
       expect(run.status).toBe('completed');
+      expect(run.totalAllocatedSeconds).toBe(1200);
+      expect(run.totalActualSeconds).toBe(1200); // 1020s on tasks + 180s buffer
+      expect(run.totalOvertimeSeconds).toBe(0);
+    });
+
+    it('tracks negative pace variance and overtime when exceeding Earned Buffer duration', () => {
+      const template: RaceTemplate = {
+        ...mockTemplate,
+        tasks: [
+          { id: 't1', name: 'Task 1', durationSeconds: 60, order: 0, enabled: true },
+        ],
+      };
+
+      engine.updateSettings({
+        ...DEFAULT_SETTINGS,
+        allowOvertime: true,
+        autoAdvance: false,
+      });
+
+      engine.initializeRun(template);
+      engine.start();
+
+      // Finish task 1 in 30s (+30s lead)
+      vi.advanceTimersByTime(30 * 1000);
+      engine.completeTask();
+
+      // Earned Buffer unlocks with 30s
+      let tick = engine.getTickData();
+      expect(tick.currentTaskIndex).toBe(1);
+      expect(tick.taskAllocatedSeconds).toBe(30);
+      expect(tick.paceDeltaSeconds).toBe(30);
+
+      // Run 50s total in buffer (30s allocated + 20s overtime)
+      vi.advanceTimersByTime(50 * 1000);
+      tick = engine.getTickData();
+      expect(tick.taskOvertimeSeconds).toBe(20);
+      expect(tick.paceDeltaSeconds).toBe(-20); // Trailing by 20s (30s - 50s = -20)
+      expect(tick.raceOvertimeSeconds).toBe(20);
+
+      // Finish race
+      engine.completeTask();
+      const run = engine.getCurrentRun()!;
+      expect(engine.getTickData().timerState).toBe('RACE_COMPLETED');
+      expect(engine.getTickData().paceDeltaSeconds).toBe(-20);
+      expect(run.totalAllocatedSeconds).toBe(60); // 1 * 60s
+      expect(run.totalActualSeconds).toBe(80); // 30s task + 50s buffer
+      expect(run.totalOvertimeSeconds).toBe(20);
     });
 
     it('auto-disables buffer task without engaging if overall pace is trailing', () => {

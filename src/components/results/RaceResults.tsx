@@ -40,17 +40,19 @@ export const RaceResults: React.FC<RaceResultsProps> = ({
   const totalTimeDiff = run.totalActualSeconds - run.totalAllocatedSeconds;
   const isAheadOfTime = totalTimeDiff <= 0;
 
-  // Average time
+  const completedRegularTasks = completedTasks.filter((t) => !t.isEarnedBuffer);
+
+  // Average time (across regular tasks)
   const avgTaskSeconds =
-    completedTasks.length > 0
-      ? Math.round(completedTasks.reduce((s, t) => s + t.actualSeconds, 0) / completedTasks.length)
+    completedRegularTasks.length > 0
+      ? Math.round(completedRegularTasks.reduce((s, t) => s + t.actualSeconds, 0) / completedRegularTasks.length)
       : 0;
 
-  // Fastest & slowest tasks
-  let fastestTask = completedTasks[0];
-  let slowestTask = completedTasks[0];
+  // Fastest & slowest regular tasks
+  let fastestTask = completedRegularTasks[0];
+  let slowestTask = completedRegularTasks[0];
 
-  for (const t of completedTasks) {
+  for (const t of completedRegularTasks) {
     if (t.actualSeconds < fastestTask.actualSeconds) fastestTask = t;
     if (t.actualSeconds > slowestTask.actualSeconds) slowestTask = t;
   }

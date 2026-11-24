@@ -455,9 +455,6 @@ export class TimerEngine {
       if (accumulatedLead > 0) {
         nextRun.allocatedSeconds = accumulatedLead;
         nextRun.taskSnapshot.durationSeconds = accumulatedLead;
-        this.run.totalAllocatedSeconds = this.run.taskRuns
-          .filter((t) => t.taskSnapshot.enabled && t.status !== 'skipped')
-          .reduce((sum, t) => sum + t.allocatedSeconds, 0);
       } else {
         // Overall time is trailing or zero: disable Earned Buffer and do not engage
         nextRun.allocatedSeconds = 0;
@@ -672,6 +669,16 @@ export class TimerEngine {
           paceDelta += (tr.allocatedSeconds - tr.actualSeconds);
         } else if (i === this.currentTaskIndex) {
           paceDelta -= taskOvertime;
+        }
+      }
+
+      // Factor in Earned Buffer consumption
+      const bufferRun = this.run.taskRuns.find((t) => t.isEarnedBuffer);
+      if (bufferRun) {
+        if (bufferRun.status === 'active') {
+          paceDelta -= taskElapsed;
+        } else if (bufferRun.status === 'completed') {
+          paceDelta -= bufferRun.actualSeconds;
         }
       }
     }
